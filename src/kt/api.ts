@@ -1,4 +1,8 @@
 import { KtError } from './client.js';
+import { AsyncLocalStorage } from 'node:async_hooks';
+
+/** Per-tool cancellation, shared by all requests made while resolving that tool. */
+export const apiOperation = new AsyncLocalStorage<AbortSignal>();
 
 export type ApiRecord = Record<string, unknown>;
 export type ApiRequest = (path: string, init?: { method?: string; body?: unknown }) => Promise<unknown>;

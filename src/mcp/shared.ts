@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { apiOperation } from '../kt/api.js';
 import { assertCzechDate, MEALS, type MealId } from '../kt/client.js';
 
 export const mealIds = Object.keys(MEALS) as [MealId, ...MealId[]];
@@ -18,9 +19,12 @@ export function json(value: unknown) {
 
 /** Log operation outcomes, never food diaries, profile fields, or request bodies. */
 export function guard<Args, Result extends CallToolResult>(name: string, fn: (args: Args) => Promise<Result>) {
-  return async (args: Args) => {
+  return async (args: Args, extra?: { signal: AbortSignal }) => {
     try {
-      const result = await fn(args);
+      const result = await (extra ? apiOperation.run(extra.signal, () => {
+        extra.signal.throwIfAborted();
+        return fn(args);
+      }) : fn(args));
       console.log(`[tool] ${name} -> ok`);
       return result;
     } catch (error) {

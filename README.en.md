@@ -143,6 +143,9 @@ Image upload adds an attachment; inspect `get_recipe` after an uncertain
 failure before retrying. API requests time out after 20 seconds without
 automatically repeating an uncertain write.
 HTTP failures are errors even when their response body contains `code: 0`.
+MCP cancellation aborts in-flight API calls and prevents subsequent requests.
+A write already accepted by KT may still complete; inspect the diary before
+retrying it. Shared login renewal continues for other callers.
 The authenticated MCP route accepts up to 7 MiB of JSON to carry a 5 MiB
 base64 image. Other JSON routes retain the 1 MiB limit. Reverse proxies must
 allow the corresponding request size too.

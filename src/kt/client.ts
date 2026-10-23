@@ -19,6 +19,7 @@ import { PreferencesApi } from './preferences.js';
 import { TemplatesApi } from './templates.js';
 import { MeasurementsApi } from './measurements.js';
 import { ExportsApi, readExportBytes } from './exports.js';
+import { apiOperation } from './api.js';
 
 export const DEFAULT_BASE_URL = 'https://www.kaloricketabulky.cz';
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
@@ -330,12 +331,14 @@ export class KtClient {
     if (this.cookie) headers['Cookie'] = this.cookie;
     const multipart = init.body instanceof FormData;
     if (init.body !== undefined && !multipart) headers['Content-Type'] = 'application/json';
+    const operationSignal = apiOperation.getStore();
+    operationSignal?.throwIfAborted();
 
     const response = await fetch(this.baseUrl + path, {
       method: init.method ?? 'GET',
       headers,
       body: multipart ? init.body as FormData : init.body === undefined ? undefined : JSON.stringify(init.body),
-      signal: AbortSignal.timeout(20_000),
+      signal: operationSignal ? AbortSignal.any([operationSignal, AbortSignal.timeout(20_000)]) : AbortSignal.timeout(20_000),
       redirect: 'manual',
     });
 
@@ -381,7 +384,8 @@ export class KtClient {
   /** Logs in, reusing an in-flight attempt so concurrent tool calls don't stampede. */
   private async login(): Promise<void> {
     if (this.loginInFlight) return this.loginInFlight;
-    this.loginInFlight = (async () => {
+    // Renewal is shared: cancelling one tool must not cancel other callers' login.
+    this.loginInFlight = apiOperation.exit(async () => {
       this.cookie = null;
       const passwordHash = createHash('md5').update(this.credentials.password).digest('hex');
       const { text } = await this.request('/login/create?format=json', {
@@ -390,7 +394,7 @@ export class KtClient {
       });
       this.parseEnvelope(text, 'login');
       if (!this.cookie) throw new KtError('login succeeded but no session cookie was issued');
-    })().finally(() => {
+    }).finally(() => {
       this.loginInFlight = null;
     });
     return this.loginInFlight;

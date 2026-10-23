@@ -225,3 +225,31 @@ test('recipe scaling preserves ingredient ratios for small, full and multiple qu
   }
   assert.equal(form.foodstuff[0]?.countOriginal, '2,5');
 });
+
+test('cancelling one caller does not cancel shared login for another caller', async t => {
+  const { KtClient } = await import('./client.js');
+  const { apiOperation } = await import('./api.js');
+  const cancellation = new AbortController();
+  let start!: () => void, release!: () => void;
+  const started = new Promise<void>(resolve => { start = resolve; });
+  const ready = new Promise<void>(resolve => { release = resolve; });
+  let logins = 0, reads = 0;
+  t.mock.method(globalThis, 'fetch', async (input: string, init?: RequestInit) => {
+    if (new URL(input).pathname === '/login/create') {
+      logins++; start(); await ready;
+      assert.equal(init?.signal?.aborted, false);
+      return Response.json({ code: 0 }, { headers: { 'set-cookie': 'JSESSIONID=test-session; Path=/' } });
+    }
+    reads++;
+    return Response.json({ code: 0, data: { healthy: true } });
+  });
+  const client = new KtClient({ email: 'test@example.invalid', password: 'test' });
+  const first = apiOperation.run(cancellation.signal, () => client.getDaySummary('23.10.2026')).catch(error => error);
+  await started;
+  const second = client.getDaySummary('23.10.2026');
+  cancellation.abort(); release();
+  assert.ok(await first instanceof Error);
+  assert.deepEqual(await second, { healthy: true });
+  assert.equal(logins, 1);
+  assert.equal(reads, 1);
+});

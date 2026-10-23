@@ -28,7 +28,7 @@ const recipeForm = {
   foodstuff: [{ selected: true, count: 100, countOriginal: 100, selectedUnitGuid: GRAM_UNIT, selectedUnitGuidOriginal: GRAM_UNIT }],
 };
 
-async function connectTools(t: TestContext, reply: (url: URL, init?: RequestInit) => Response) {
+async function connectTools(t: TestContext, reply: (url: URL, init?: RequestInit) => Response | Promise<Response>) {
   const requests: string[] = [];
   t.mock.method(globalThis, 'fetch', async (input: string, init?: RequestInit) => {
     const url = new URL(input);
@@ -634,4 +634,32 @@ test('upstream HTTP failures cannot masquerade as successful diary reads or writ
     assert.match(JSON.stringify(result.content), /HTTP 503/);
   }
   assert.equal(writes, 1, 'An uncertain write must not be replayed');
+});
+
+test('MCP cancellation reaches an in-flight API read and prevents a following write', async t => {
+  const cancellation = new AbortController();
+  let start!: () => void, cancelled!: () => void;
+  const started = new Promise<void>(resolve => { start = resolve; });
+  const observed = new Promise<void>(resolve => { cancelled = resolve; });
+  const { client, requests } = await connectTools(t, async (url, init) => {
+    assert.equal(url.pathname, '/user/activity/add/form/activity-one');
+    const signal = init?.signal;
+    assert.ok(signal);
+    start();
+    await new Promise<never>((_resolve, reject) => {
+      signal.addEventListener('abort', () => { cancelled(); reject(signal.reason); }, { once: true });
+    });
+    throw new Error('Unreachable');
+  });
+  const pending = client.callTool({ name: 'log_activity', arguments: {
+    activity_id: 'activity-one', date: '24.10.2026', duration_minutes: 10,
+  } }, undefined, { signal: cancellation.signal }).catch(error => error);
+  await started;
+  cancellation.abort();
+  assert.ok(await pending instanceof Error);
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([observed, new Promise((_, reject) => { deadline = setTimeout(() => reject(new Error('Cancellation did not reach the API request')), 1000); })]);
+  } finally { clearTimeout(deadline); }
+  assert.ok(!requests.includes('/user/activity/add'));
 });

@@ -140,6 +140,9 @@ postupu smaže jednotlivé kroky. Obrázek se připojuje jako další příloha;
 při ztrátě odpovědi před opakováním zkontrolujte `get_recipe`.
 Požadavky mají časový limit 20 sekund; nejisté zápisy se neopakují.
 Chybový HTTP stav zůstává chybou i při odpovědi obsahující `code: 0`.
+Zrušení MCP operace přeruší její API požadavky a zabrání dalším požadavkům.
+Již přijatý zápis může KT dokončit; před opakováním zkontrolujte jídelníček.
+Sdílené obnovení přihlášení pokračuje pro ostatní volání.
 Autentizovaná MCP cesta přijímá JSON do 7 MiB pro přenos obrázku do 5 MiB
 v base64. Ostatní JSON cesty mají limit 1 MiB. Odpovídající velikost musí
 povolit i reverzní proxy.
