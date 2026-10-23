@@ -1,33 +1,31 @@
-# kt-mcp
+<h1 align="center">Kaloricke-Tabulky-MCP</h1>
 
-**🇨🇿 Česky** · [🇬🇧 English](README.en.md)
+<p align="center">
+  <a href="https://github.com/NightMean/Kaloricke-Tabulky-MCP/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen?style=flat-square" alt="Build Status" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License" /></a>
+  <img src="https://img.shields.io/badge/TypeScript-5.8-blue?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/MCP-1.6.0-orange?style=flat-square" alt="Model Context Protocol" />
+  <img src="https://img.shields.io/badge/Node-%3E%3D20-green?style=flat-square&logo=node.js&logoColor=white" alt="Node" />
+</p>
 
-Self-hosted [MCP](https://modelcontextprotocol.io) server, který propojí AI agenta s vaším jídelníčkem na **kaloricketabulky.cz**.
+<p align="center">
+  <b>🇨🇿 Česky</b> · <a href="README.en.md">🇬🇧 English</a>
+</p>
 
-Řeknete *„snědl jsem 3 vejce a banán"* — agent prohledá českou databázi potravin, vybere správnou porci a zapíše záznamy do vašeho skutečného jídelníčku. Oficiální aplikace zůstává zdrojem pravdy, takže prémiové funkce fungují dál.
+Self-hosted [MCP](https://modelcontextprotocol.io) server, který propojí AI agenta s vaším jídelníčkem na [kaloricketabulky.cz](https://www.kaloricketabulky.cz) i [kaloricketabulky.sk](https://www.kaloricketabulky.sk).
 
-Postaveno a otestováno s **Claudem** (desktop, mobil i web přes custom connector), ale server mluví standardním MCP přes HTTPS s OAuth 2.1, takže se může připojit jakýkoli agent, který podporuje vzdálené MCP servery.
+Řeknete *„snědl jsem 3 vejce a banán"* (nebo slovensky *„zjedol som 3 vajcia a banán"*) — agent prohledá databázi potravin, vybere správnou porci a zapíše záznamy do vašeho skutečného jídelníčku. Oficiální aplikace zůstává zdrojem pravdy, takže prémiové funkce fungují dál.
 
-> ## Neoficiální projekt, bez vazby na Dine4Fit
->
-> kaloricketabulky.cz provozuje společnost **Dine4Fit, a.s.**, která s tímto
-> projektem nemá nic společného a nijak ho neschvaluje. Veřejné API neexistuje;
-> zde použité endpointy byly vyčteny z frontendového JavaScriptu samotného webu
-> a mohou se kdykoli bez varování změnit nebo rozbít.
->
-> Podmínky Dine4Fit udělují **osobní, nekomerční** licenci. Tento software je
-> zveřejněn proto, abyste si mohli zautomatizovat přístup ke **svému vlastnímu
-> účtu** — což licence dovoluje. Provozovat ho jako placenou nebo víceuživatelskou
-> službu, případně dál šířit potravinová data, která vrací, je jiná věc a jde
-> na váš vrub. Databáze patří Dine4Fit a je chráněna evropskými databázovými právy.
->
-> Držte frekvenci požadavků na lidské úrovni. Nestavte na tom konkurenčního klienta.
+Podporuje jak českou doménu ([kaloricketabulky.cz](https://www.kaloricketabulky.cz)), tak slovenskou ([kaloricketabulky.sk](https://www.kaloricketabulky.sk)) přes proměnnou `KT_DOMAIN=kaloricketabulky.sk`.
+Oba soubory Docker Compose předávají nastavení serveru. Alternativně ponechte
+`KT_DOMAIN` nenastavené nebo prázdné a nastavte `KT_BASE_URL=https://www.kaloricketabulky.sk`.
+Neprázdné `KT_DOMAIN` má přednost; bez obou hodnot se použije česká doména.
 
-## Co s tím jde dělat
+## Funkce
 
 Jakmile je agent připojený, přestane být zapisování jídel otravným proklikáváním vyhledávání. Pár vzorů, které v praxi fungují dobře:
 
-- **Zapisujte mluvením.** „K snídani jsem měl rohlík se šunkou a dvě vejce." Agent vyhledá potraviny, zvolí přirozené porce (*kus (55 g)* místo odhadovaných gramů) a zapíše každou položku do správného denního jídla.
+- **Zápis přirozeným jazykem.** „K snídani jsem měl rohlík se šunkou a dvě vejce." Agent zpracuje text (nebo hlasový přepis z vašeho klienta), vyhledá potraviny, zvolí přirozené porce (*kus (55 g)* místo odhadovaných gramů) a zapíše každou položku do správného denního jídla.
 
 - **Zautomatizujte rutinu.** Pijete každý den dvě kávy s mlékem — proč je vypisovat? Pokud váš agent umí naplánované úlohy (Claude umí), řekněte mu to jednou: *„Každý den v 9:00 mi zapiš do jídelníčku dvě espressa s mlékem."* Denní konstanty se zapisují samy.
 
@@ -37,19 +35,44 @@ Jakmile je agent připojený, přestane být zapisování jídel otravným prokl
 
 - **Ptejte se, jak vám jde den.** „Kolik kalorií mi dnes zbývá?" přečte denní součty přímo z jídelníčku.
 
+### Podporovaní klienti
+
+Server komunikuje standardním protokolem MCP přes HTTPS s OAuth 2.1 a je otestován s:
+- **Claude** (Desktop, mobilní aplikace i web přes custom connector)
+- **Cursor**, **Windsurf** a další vývojová prostředí s podporou vzdálených MCP serverů
+- Jakýkoli MCP klient podporující vzdálený transport (SSE/HTTP) s OAuth 2.1
+
 ## Nástroje
+
+<details>
+<summary><b>Zobrazit seznam dostupných MCP nástrojů</b></summary>
 
 | Nástroj | Účel |
 |---|---|
-| `search_food` | Najde potraviny podle českého názvu nebo 13místného EAN kódu. Vrací id potraviny, které potřebují ostatní nástroje. |
-| `get_food_portions` | Vypíše přirozené porce potraviny (`kus (55 g)`, `velký kus (60 g)`), takže „3 vejce" se zapíšou jako tři kusy, ne odhadnutá váha. |
+| `search_food` | Najde potraviny podle českého/slovenského názvu nebo 13místného EAN kódu. Vrací id potraviny, které potřebují ostatní nástroje. |
+| `get_food_portions` | Vypíše přirozené porce potraviny (`kus (55 g)`, `velký kus (60 g)`), takže „3 vejce / 3 vajcia" se zapíšou jako tři kusy, ne odhadnutá váha. |
 | `get_food_nutrition` | Kalorie a makra pro dané množství, přepočítané samotným webem. Pouze čtení. |
-| `log_food` | Zapíše záznam o jídle do jídelníčku. |
-| `get_day_summary` | Přečte denní součty. |
+| `log_food` | Zapíše záznam o jídle do jídelníčku (podporuje `dry_run: true` pro bezpečný náhled před zápisem). |
+| `get_day_summary` | Přečte denní souhrn jídelníčku a strukturovaný přehled cílů (energie, makra, voda). |
+| `record_weight` | Zapíše tělesnou hmotnost (kg) uživatele k danému dni (podporuje `dry_run: true`). |
+| `get_weight_history` | Načte historii záznamů tělesné hmotnosti z měsíčních statistik. |
 | `create_meal` | Uloží recept složený z existujících potravin. |
 | `list_my_meals` | Vypíše uložené recepty s jejich id a celkovou energií. |
-| `log_meal` | Zaloguje celý uložený recept jako jeden záznam. |
+| `log_meal` | Zaloguje uložený recept do jídelníčku s možností škálování porce (podporuje `dry_run: true`). |
 | `delete_meal` | Smaže uložený recept. |
+
+</details>
+
+`get_day_summary` zachovává původní odpověď statistik v `summary` i aliasu
+`raw`. Přehled `overview` spojuje energii a vodu ze statistik s cíli makroživin
+ze samostatného souhrnu jídelníčku. Vodu v litrech převádí na mililitry;
+energie si zachovává jednotku webu. Chybějící hodnoty zůstávají `null`.
+Při selhání kteréhokoli API požadavku nástroj vrátí chybu.
+
+U `log_food`, `log_meal` a `record_weight` nastavte `dry_run: true` pro náhled
+bez zápisu. Vynechání `dry_run` nebo hodnota `false` provede zápis okamžitě.
+Oba režimy ověřují formát i platnost kalendářního data;
+selhání načtení potraviny nebo receptu se v náhledu projeví chybou.
 
 ### Recepty
 
@@ -66,7 +89,7 @@ Když předáte `unit_id` z `get_food_portions`, počet ho násobí: 2 × `porce
 
 ## Jak to funguje
 
-kaloricketabulky.cz je Spring MVC aplikace, kde každá routa odpoví i v JSON, když přidáte `?format=json` — vrací obálku `{code, data, message}`. Žádné oficiální ani dokumentované API neexistuje; endpointy byly zrekonstruovány z frontendového JavaScriptu webu. Úplná mapa je v `src/kt/client.ts`.
+[kaloricketabulky.cz](https://www.kaloricketabulky.cz) je Spring MVC aplikace, kde každá routa odpoví i v JSON, když přidáte `?format=json` — vrací obálku `{code, data, message}`. Žádné oficiální ani dokumentované API neexistuje; endpointy byly zrekonstruovány z frontendového JavaScriptu webu. Úplná mapa je v `src/kt/client.ts`.
 
 ```
 Agent  ──OAuth 2.1──►  kt-mcp  ──JSESSIONID──►  kaloricketabulky.cz
@@ -78,13 +101,13 @@ Dvě hesla, každé hlídá něco jiného:
 | Tajemství | Hlídá |
 |---|---|
 | `MCP_AUTH_PASSWORD` | Kdo smí tento server připojit k agentovi. Zadáváte ho jednou v prohlížeči při OAuth souhlasu. |
-| `KT_PASSWORD` | Účet na kaloricketabulky.cz, do kterého nástroje zapisují. Nikdy neopouští server. |
+| `KT_PASSWORD` | Účet na [kaloricketabulky.cz](https://www.kaloricketabulky.cz), do kterého nástroje zapisují. Nikdy neopouští server. |
 
 ### Co se stane při připojení
 
 Žádný token ručně nevytváříte ani nekopírujete — OAuth to udělá za vás:
 
-1. Do prostředí serveru (`.env`) vložíte svůj **login na kaloricketabulky.cz**
+1. Do prostředí serveru (`.env`) vložíte svůj **login na [kaloricketabulky.cz](https://www.kaloricketabulky.cz)**
    (`KT_EMAIL` / `KT_PASSWORD`) a **přístupovou frázi, kterou si vymyslíte**
    (`MCP_AUTH_PASSWORD`). Přihlašovací údaje ke kalorickým tabulkám zůstávají
    na vašem serveru; agent je nikdy nevidí.
@@ -153,7 +176,9 @@ docker compose build
 
 | Proměnná | Hodnota |
 |---|---|
-| `KT_EMAIL` / `KT_PASSWORD` | Váš login na kaloricketabulky.cz |
+| `KT_EMAIL` / `KT_PASSWORD` | Váš login na [kaloricketabulky.cz](https://www.kaloricketabulky.cz) / [kaloricketabulky.sk](https://www.kaloricketabulky.sk) |
+| `KT_DOMAIN` | `kaloricketabulky.cz` (výchozí) nebo `kaloricketabulky.sk` podle vašeho účtu |
+| `KT_BASE_URL` | Volitelná základní URL; použije se jen při nenastaveném nebo prázdném `KT_DOMAIN` |
 | `MCP_HOSTNAME` | `<your-host>` — holý hostname bez schématu. nginx si ho při startu doplní do konfigurace |
 | `MCP_AUTH_PASSWORD` | Dlouhá přístupová fráze, kterou si zvolíte (min. 12 znaků) |
 | `PUBLIC_URL` | `https://<your-host>` — musí přesně odpovídat hostname tunelu |
@@ -235,11 +260,33 @@ jméno klienta zobrazené ve formuláři.
 
 - **Nedokumentovaný upstream.** Dine4Fit tu nic negarantuje; refactoring frontendu může bez varování změnit tvary odpovědí. Klient při čemkoli nečekaném vyhodí chybu místo hádání, takže se rozbití projeví hlasitou chybou, ne špatným počtem kalorií.
 - **`md5(hesla)` je ekvivalent hesla.** Web hashuje heslo na klientovi, hash je tedy stejně citlivý jako heslo samotné. Podle toho s `KT_PASSWORD` zacházejte.
-- **Jeden účet na instanci.** Server se přihlašuje k jedinému účtu kaloricketabulky.cz. Dva lidé, dva kontejnery.
+- **Jeden účet na instanci.** Server se přihlašuje k jedinému účtu [kaloricketabulky.cz](https://www.kaloricketabulky.cz) (či [kaloricketabulky.sk](https://www.kaloricketabulky.sk)). Dva lidé, dva kontejnery.
 - **Osobní použití.** Automatizace zápisů do vlastního účtu je mnohem měkčí pozice než hromadný scraping, ale pořád je mimo cokoli, co Dine4Fit posvětil. Držte frekvenci požadavků na lidské úrovni a nestavte na tom konkurenčního klienta.
-- **Čtení jednotlivých záznamů dne** je nejméně ověřený endpoint; `get_day_summary` posílá odpověď webu beze změny dál, protože její tvar není plně zdokumentovaný.
-- **Část porce receptu zalogovat nejde.** Formulář pro přidání jídla sice nabízí `count` proti pseudo-jednotkám porce, procenta a gramy, ale server ho ignoruje a zaloguje vždy celý recept — měřeno na receptu o 249 kcal přidalo 0,5 porce i polovina váhy plných 249. `log_meal` proto nemá argument `portions`; když snědená byla jen část receptu, zalogujte suroviny jednotlivě přes `log_food`.
+- **Denní souhrny obsahují součty, nikoli jednotlivé záznamy jídelníčku.** Parsování pokrývají řízené testy podle komunitních modelů API; neověřují váš účet ani nezaručují neměnnost nedokumentovaných endpointů.
+- **Škálování porcí receptů.** Při zápisu uložených receptů pomocí `log_meal` jsou plně podporovány částečné i vícenásobné porce (např. `0.5` nebo `2`) prostřednictvím poměrného přepočtu jednotlivých surovin receptu.
+
+> [!WARNING]
+> ## Neoficiální projekt, bez vazby na Dine4Fit
+>
+> [kaloricketabulky.cz](https://www.kaloricketabulky.cz) i [kaloricketabulky.sk](https://www.kaloricketabulky.sk) provozuje společnost **Dine4Fit, a.s.**, která s tímto
+> projektem nemá nic společného a nijak ho neschvaluje. Veřejné API neexistuje;
+> zde použité endpointy byly vyčteny z frontendového JavaScriptu samotného webu
+> a mohou se kdykoli bez varování změnit nebo rozbít.
+>
+> Podmínky Dine4Fit udělují **osobní, nekomerční** licenci. Tento software je
+> zveřejněn proto, abyste si mohli zautomatizovat přístup ke **svému vlastnímu
+> účtu** — což licence dovoluje. Provozovat ho jako placenou nebo víceuživatelskou
+> službu, případně dál šířit potravinová data, která vrací, je jiná věc a jde
+> na váš vrub. Databáze patří Dine4Fit a je chráněna evropskými databázovými právy.
+>
+> Držte frekvenci požadavků na lidské úrovni. Nestavte na tom konkurenčního klienta.
+
+## Credits
+
+* **[nikopol666/kaloricke-tabulky-MCP](https://github.com/nikopol666/kaloricke-tabulky-MCP)** — koncept bezpečného zápisu s náhledem (`dry_run` / `commit`).
+* **[tomasvotava/kaloricketabulky](https://github.com/tomasvotava/kaloricketabulky)** — inspirace pro přehledné strukturování denních souhrnů, makroživinových cílů a statistik.
+* **[TomasHubelbauer/kaloricke-tabulky-api](https://github.com/TomasHubelbauer/kaloricke-tabulky-api)** — reverzní inženýrství endpointů pro záznam a sledování tělesné hmotnosti (`record_weight`).
 
 ## Licence
 
-[MIT](LICENSE). Databáze potravin a služba kaloricketabulky.cz patří Dine4Fit, a.s. — tato licence pokrývá pouze kód v tomto repozitáři.
+Licensed under the [MIT license](LICENSE). Databáze potravin a služba [kaloricketabulky.cz](https://www.kaloricketabulky.cz) patří Dine4Fit, a.s. — tato licence pokrývá pouze kód v tomto repozitáři.
