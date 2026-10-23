@@ -348,6 +348,11 @@ export class KtClient {
     const location = response.headers.get('location') ?? '';
     const redirectedToLogin = response.status >= 300 && response.status < 400 && location.includes('/login');
 
+    if (!response.ok && !redirectedToLogin) {
+      await response.body?.cancel();
+      throw new KtError(`${path}: HTTP ${response.status}`);
+    }
+
     return binary
       ? { status: response.status, redirectedToLogin, text: '', bytes: await readExportBytes(response) }
       : { status: response.status, redirectedToLogin, text: await response.text() };

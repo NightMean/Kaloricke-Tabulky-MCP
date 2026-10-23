@@ -614,3 +614,24 @@ test('exports fail clearly on exhausted authentication and HTML responses', asyn
   assert.equal(result.isError, true);
   assert.match(JSON.stringify(result.content), /expected document/);
 });
+
+test('upstream HTTP failures cannot masquerade as successful diary reads or writes', async t => {
+  let writes = 0;
+  const { client } = await connectTools(t, (url, init) => {
+    if (url.pathname === '/user/diary/24.10.2026/get') return Response.json({ code: 0, data: detailedDiary }, { status: 503 });
+    if (url.pathname === '/user/activity/add/form/activity-one') return Response.json({ code: 0,
+      data: { guid: 'activity-one', title: 'Walking', timeUnit: 'hrs' } });
+    assert.equal(url.pathname, '/user/activity/add');
+    assert.equal(init?.method, 'POST'); writes++;
+    return Response.json({ code: 0 }, { status: 503 });
+  });
+  for (const [name, args] of [
+    ['get_diary', { date: '24.10.2026' }],
+    ['log_activity', { activity_id: 'activity-one', date: '24.10.2026', duration_minutes: 10 }],
+  ] as const) {
+    const result = await client.callTool({ name, arguments: args });
+    assert.equal(result.isError, true);
+    assert.match(JSON.stringify(result.content), /HTTP 503/);
+  }
+  assert.equal(writes, 1, 'An uncertain write must not be replayed');
+});
