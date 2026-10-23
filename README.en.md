@@ -87,6 +87,7 @@ The server communicates via standard MCP over HTTPS with OAuth 2.1 and is tested
 | `get_measurement_types` / `list_measurement_trackers` | Discover body/custom trackers and their units; weight remains separate. |
 | `create_measurement_tracker` / `record_measurement` | Create a tracker without an initial reading, then record a dated value; supports `dry_run`. |
 | `delete_measurement_tracker` | Delete a non-weight tracker and all its history; supports `dry_run`. |
+| `export_diary` | Download diary XLS/PDF or analysis PDF as an embedded MCP document, maximum 5 MiB. |
 
 </details>
 

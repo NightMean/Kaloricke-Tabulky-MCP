@@ -87,6 +87,7 @@ Server komunikuje standardním protokolem MCP přes HTTPS s OAuth 2.1 a je otest
 | `get_measurement_types` / `list_measurement_trackers` | Vypíše typy a vlastní měření s jednotkami; hmotnost se spravuje zvlášť. |
 | `create_measurement_tracker` / `record_measurement` | Vytvoří měření bez počáteční hodnoty a zapíše hodnotu k datu; podporuje `dry_run`. |
 | `delete_measurement_tracker` | Smaže vlastní měření včetně celé historie; podporuje `dry_run`. |
+| `export_diary` | Stáhne XLS/PDF jídelníčku nebo PDF analýzy jako vložený MCP dokument, nejvýše 5 MiB. |
 
 </details>
 

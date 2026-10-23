@@ -33,7 +33,7 @@ async function connectTools(t: TestContext, reply: (url: URL, init?: RequestInit
   t.mock.method(globalThis, 'fetch', async (input: string, init?: RequestInit) => {
     const url = new URL(input);
     assert.equal(url.origin, 'https://www.kaloricketabulky.sk');
-    assert.equal(url.searchParams.get('format'), 'json');
+    assert.equal(url.searchParams.get('format'), url.pathname.startsWith('/user/export/') ? null : 'json');
     requests.push(url.pathname);
     if (url.pathname === '/login/create') {
       return Response.json({ code: 0, data: {} }, { headers: { 'set-cookie': 'JSESSIONID=test-session; Path=/' } });
@@ -582,4 +582,35 @@ test('custom tracker creation requires explicit title and unit and does not reco
   assert.ok(!(await client.callTool({ name: 'create_measurement_tracker', arguments: { title: 'Custom', unit: 'points' } })).isError);
   assert.equal(writes[0].typeGuid, '0');
   assert.equal(writes[0].value, null);
+});
+
+test('exports renew an expired session and return intact document bytes as an MCP resource', async t => {
+  let attempts = 0;
+  const { client, requests } = await connectTools(t, url => {
+    assert.equal(url.pathname, '/user/export/pdf/23.10.2026/23.10.2026/get');
+    if (++attempts === 1) return new Response(null, { status: 302, headers: { location: '/login' } });
+    return new Response('%PDF-1.4\nexample', { headers: { 'content-type': 'application/force-download' } });
+  });
+  const result = await client.callTool({ name: 'export_diary', arguments: { format: 'pdf', from: '23.10.2026', to: '23.10.2026' } });
+  assert.ok(!result.isError && Array.isArray(result.content));
+  const resource = result.content.find(item => item.type === 'resource');
+  assert.ok(resource?.type === 'resource' && 'blob' in resource.resource);
+  assert.equal(resource.resource.mimeType, 'application/pdf');
+  assert.equal(Buffer.from(resource.resource.blob, 'base64').toString(), '%PDF-1.4\nexample');
+  assert.equal(requests.filter(path => path === '/login/create').length, 2);
+});
+
+test('exports fail clearly on exhausted authentication and HTML responses', async t => {
+  let mode = 'login';
+  const { client } = await connectTools(t, () => mode === 'login'
+    ? new Response(null, { status: 302, headers: { location: '/login' } })
+    : new Response('<html>Access required</html>'));
+  const args = { format: 'pdf', from: '23.10.2026', to: '23.10.2026' };
+  let result = await client.callTool({ name: 'export_diary', arguments: args });
+  assert.equal(result.isError, true);
+  assert.match(JSON.stringify(result.content), /still unauthenticated/);
+  mode = 'html';
+  result = await client.callTool({ name: 'export_diary', arguments: args });
+  assert.equal(result.isError, true);
+  assert.match(JSON.stringify(result.content), /expected document/);
 });

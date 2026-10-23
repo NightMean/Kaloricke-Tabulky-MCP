@@ -18,6 +18,7 @@ import { RecipesApi, scaleRecipeForm } from './recipes.js';
 import { PreferencesApi } from './preferences.js';
 import { TemplatesApi } from './templates.js';
 import { MeasurementsApi } from './measurements.js';
+import { ExportsApi, readExportBytes } from './exports.js';
 
 export const DEFAULT_BASE_URL = 'https://www.kaloricketabulky.cz';
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
@@ -304,6 +305,11 @@ export class KtClient {
   readonly preferences = new PreferencesApi((path, init) => this.authed(path, init));
   readonly templates = new TemplatesApi((path, init) => this.authed(path, init));
   readonly measurements = new MeasurementsApi((path, init) => this.authed(path, init), this.statistics);
+  readonly exports = new ExportsApi(async path => {
+    const response = await this.authedRequest(path, {}, true);
+    if (response.status < 200 || response.status >= 300 || !response.bytes) throw new KtError(`Export request failed: HTTP ${response.status}`);
+    return response.bytes;
+  });
   private cookie: string | null = null;
   private loginInFlight: Promise<void> | null = null;
   readonly baseUrl: string;
@@ -315,7 +321,8 @@ export class KtClient {
   private async request(
     path: string,
     init: { method?: string; body?: unknown } = {},
-  ): Promise<{ status: number; redirectedToLogin: boolean; text: string }> {
+    binary = false,
+  ): Promise<{ status: number; redirectedToLogin: boolean; text: string; bytes?: Buffer }> {
     const headers: Record<string, string> = {
       'User-Agent': UA,
       Accept: 'application/json',
@@ -341,7 +348,9 @@ export class KtClient {
     const location = response.headers.get('location') ?? '';
     const redirectedToLogin = response.status >= 300 && response.status < 400 && location.includes('/login');
 
-    return { status: response.status, redirectedToLogin, text: await response.text() };
+    return binary
+      ? { status: response.status, redirectedToLogin, text: '', bytes: await readExportBytes(response) }
+      : { status: response.status, redirectedToLogin, text: await response.text() };
   }
 
   private parseEnvelope(text: string, context: string): unknown {
@@ -383,18 +392,23 @@ export class KtClient {
   }
 
   /** Runs an authenticated call, logging in on first use and once on session expiry. */
-  private async authed(
+  private async authedRequest(
     path: string,
     init: { method?: string; body?: unknown } = {},
-  ): Promise<unknown> {
+    binary = false,
+  ) {
     if (!this.cookie) await this.login();
-    let result = await this.request(path, init);
+    let result = await this.request(path, init, binary);
     if (result.redirectedToLogin) {
       await this.login();
-      result = await this.request(path, init);
+      result = await this.request(path, init, binary);
       if (result.redirectedToLogin) throw new KtError(`${path}: still unauthenticated after re-login`);
     }
-    return this.parseEnvelope(result.text, path);
+    return result;
+  }
+
+  private async authed(path: string, init: { method?: string; body?: unknown } = {}): Promise<unknown> {
+    return this.parseEnvelope((await this.authedRequest(path, init)).text, path);
   }
 
   /**
