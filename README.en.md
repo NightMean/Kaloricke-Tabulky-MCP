@@ -152,7 +152,7 @@ allow the corresponding request size too.
 
 ## How it works
 
-[kaloricketabulky.cz](https://www.kaloricketabulky.cz) is a Spring MVC app where every route also answers JSON if you append `?format=json`, returning a `{code, data, message}` envelope. There is no official or documented API — these endpoints were recovered from the site's own frontend JavaScript. See `src/kt/client.ts` for the full map.
+[kaloricketabulky.cz](https://www.kaloricketabulky.cz) is a Spring MVC app where every route also answers JSON if you append `?format=json`, returning a `{code, data, message}` envelope. There is no official or documented API — these endpoints were recovered from the site's own frontend JavaScript. See [docs/API.md](docs/API.md) for endpoint contracts and the feature clients under `src/kt/`.
 
 ```
 Agent  ──OAuth 2.1──►  kt-mcp  ──JSESSIONID──►  kaloricketabulky.cz
@@ -306,7 +306,7 @@ Because each person runs their own instance, each token is single-tenant: your s
 - **`md5(password)` is password-equivalent.** The site hashes the password client-side, so the hash is as sensitive as the password. Treat `KT_PASSWORD` accordingly.
 - **One account per instance.** The server logs into a single [kaloricketabulky.cz](https://www.kaloricketabulky.cz) (or [kaloricketabulky.sk](https://www.kaloricketabulky.sk)) account. Two people, two containers.
 - **Personal use.** Automating entry into your own account is a far softer position than bulk scraping, but it is still outside anything Dine4Fit has sanctioned. Keep the request rate human, and don't build a competing client on it.
-- **Daily summaries are totals, not individual diary entries.** Response parsing is covered by controlled tests based on community API models; this does not verify your account or guarantee that the undocumented endpoints will remain unchanged.
+- **Choose the appropriate diary view.** `get_day_summary` returns totals; `get_diary` returns individual entries and IDs for corrections. Automated tests do not verify your account or guarantee that undocumented endpoints stay unchanged.
 - **Recipe portion scaling.** When logging saved recipes via `log_meal`, partial or multiple portions (e.g. `0.5` or `2`) are supported by proportionally scaling constituent foodstuff ingredients in the diary entry.
 
 > [!WARNING]

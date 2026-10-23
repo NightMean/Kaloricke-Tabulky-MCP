@@ -149,7 +149,7 @@ povolit i reverzní proxy.
 
 ## Jak to funguje
 
-[kaloricketabulky.cz](https://www.kaloricketabulky.cz) je Spring MVC aplikace, kde každá routa odpoví i v JSON, když přidáte `?format=json` — vrací obálku `{code, data, message}`. Žádné oficiální ani dokumentované API neexistuje; endpointy byly zrekonstruovány z frontendového JavaScriptu webu. Úplná mapa je v `src/kt/client.ts`.
+[kaloricketabulky.cz](https://www.kaloricketabulky.cz) je Spring MVC aplikace, kde každá routa odpoví i v JSON, když přidáte `?format=json` — vrací obálku `{code, data, message}`. Žádné oficiální ani dokumentované API neexistuje; endpointy byly zrekonstruovány z frontendového JavaScriptu webu. Kontrakty endpointů popisuje [docs/API.md](docs/API.md); implementace je ve funkcích pod `src/kt/`.
 
 ```
 Agent  ──OAuth 2.1──►  kt-mcp  ──JSESSIONID──►  kaloricketabulky.cz
@@ -322,7 +322,7 @@ jméno klienta zobrazené ve formuláři.
 - **`md5(hesla)` je ekvivalent hesla.** Web hashuje heslo na klientovi, hash je tedy stejně citlivý jako heslo samotné. Podle toho s `KT_PASSWORD` zacházejte.
 - **Jeden účet na instanci.** Server se přihlašuje k jedinému účtu [kaloricketabulky.cz](https://www.kaloricketabulky.cz) (či [kaloricketabulky.sk](https://www.kaloricketabulky.sk)). Dva lidé, dva kontejnery.
 - **Osobní použití.** Automatizace zápisů do vlastního účtu je mnohem měkčí pozice než hromadný scraping, ale pořád je mimo cokoli, co Dine4Fit posvětil. Držte frekvenci požadavků na lidské úrovni a nestavte na tom konkurenčního klienta.
-- **Denní souhrny obsahují součty, nikoli jednotlivé záznamy jídelníčku.** Parsování pokrývají řízené testy podle komunitních modelů API; neověřují váš účet ani nezaručují neměnnost nedokumentovaných endpointů.
+- **Vyberte správný pohled.** `get_day_summary` vrací součty; `get_diary` jednotlivé položky s ID pro úpravy. Automatické testy neověřují váš účet ani nezaručují neměnnost nedokumentovaných endpointů.
 - **Škálování porcí receptů.** Při zápisu uložených receptů pomocí `log_meal` jsou plně podporovány částečné i vícenásobné porce (např. `0.5` nebo `2`) prostřednictvím poměrného přepočtu jednotlivých surovin receptu.
 
 > [!WARNING]
