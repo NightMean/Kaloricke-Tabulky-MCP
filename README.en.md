@@ -81,6 +81,9 @@ The server communicates via standard MCP over HTTPS with OAuth 2.1 and is tested
 | `get_favorites` / `get_common_items` | Read favorite or commonly used foods/activities. |
 | `set_favorite` | Set or remove favorite membership; supports `dry_run`. |
 | `get_profile` | Read nutrition-related settings and goals; omits authentication/payment fields. |
+| `list_templates` / `get_template` | List owned diary templates and read their contents. |
+| `create_template_from_diary` | Save all foods from one day, optionally activities/notes; supports `dry_run`. |
+| `apply_template` / `delete_template` | Add saved quantities to one date or delete the saved template; supports `dry_run`. |
 
 </details>
 

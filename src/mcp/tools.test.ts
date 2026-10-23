@@ -532,3 +532,23 @@ test('note previews and missing note IDs cannot invoke writes or deletion', asyn
   assert.ok(!(await client.callTool({ name: 'delete_diary_note', arguments: { date: '24.10.2026', note_id: 'note-one' } })).isError);
   assert.deepEqual(changes, ['/user/diary/note/delete/note-one']);
 });
+
+test('template application checks ownership and targets only the authenticated account and requested date', async t => {
+  const writes: any[] = [];
+  const { client } = await connectTools(t, (url, init) => {
+    if (url.pathname === '/user/templates/list') return Response.json({ code: 0, data: [{ id: 'template-one' }] });
+    if (url.pathname === '/user/templates/form/template-one') return Response.json({ code: 0,
+      data: { id: 'template-one', times: [], datesToAdd: ['old'], userGuidToShare: 'other-account', userGuidFromShare: 'other' } });
+    assert.equal(url.pathname, '/user/templates/diary/write');
+    writes.push(JSON.parse(String(init?.body))); return Response.json({ code: 0 });
+  });
+  const args = { template_id: 'template-one', date: '24.10.2026' };
+  assert.equal((await client.callTool({ name: 'apply_template', arguments: { ...args, template_id: 'unknown' } })).isError, true);
+  assert.ok(!(await client.callTool({ name: 'apply_template', arguments: { ...args, dry_run: true } })).isError);
+  assert.equal(writes.length, 0);
+  assert.ok(!(await client.callTool({ name: 'apply_template', arguments: args })).isError);
+  assert.deepEqual(writes[0].datesToAdd, ['24.10.2026']);
+  assert.equal(writes[0].userGuidToShare, null);
+  assert.equal(writes[0].userGuidFromShare, null);
+  assert.equal(writes[0].coeficientMultiplier, 1);
+});

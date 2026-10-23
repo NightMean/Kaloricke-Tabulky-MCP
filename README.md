@@ -81,6 +81,9 @@ Server komunikuje standardním protokolem MCP přes HTTPS s OAuth 2.1 a je otest
 | `get_favorites` / `get_common_items` | Načte oblíbené nebo často používané potraviny/aktivity. |
 | `set_favorite` | Přidá nebo odebere oblíbenou položku; podporuje `dry_run`. |
 | `get_profile` | Načte výživová nastavení a cíle bez přihlašovacích a platebních polí. |
+| `list_templates` / `get_template` | Vypíše vlastní šablony jídelníčku a jejich obsah. |
+| `create_template_from_diary` | Uloží všechny potraviny dne, volitelně aktivity/poznámky; podporuje `dry_run`. |
+| `apply_template` / `delete_template` | Přidá šablonu do dne nebo smaže uloženou šablonu; podporuje `dry_run`. |
 
 </details>
 

@@ -13,6 +13,7 @@ import { registerStatisticsTools } from './statistics-tools.js';
 import { registerActivityTools } from './activity-tools.js';
 import { registerRecipeTools } from './recipe-tools.js';
 import { registerPreferenceTools } from './preference-tools.js';
+import { registerTemplateTools } from './template-tools.js';
 import { guard, json } from './shared.js';
 import {
   GRAM_UNIT,
@@ -49,6 +50,7 @@ export function registerTools(server: McpServer, kt: KtClient): void {
   registerActivityTools(server, kt);
   registerRecipeTools(server, kt);
   registerPreferenceTools(server, kt);
+  registerTemplateTools(server, kt);
   server.registerTool(
     'search_food',
     {
