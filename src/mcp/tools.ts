@@ -273,4 +273,45 @@ export function registerTools(server: McpServer, kt: KtClient): void {
       return json({ date: date ?? todayCzech(), summary: await kt.getDaySummary(date) });
     }),
   );
+
+  server.registerTool(
+    'record_weight',
+    {
+      title: 'Record body weight',
+      description:
+        'Log user body weight in kilograms to Kalorické Tabulky. Writes to their weight tracking log for the specified date (defaults to today).',
+      inputSchema: {
+        weight_kg: z.number().positive().max(500).describe('Body weight in kilograms, e.g. 78.5 or 82.'),
+        date: z.string().optional().describe(dateDescription),
+      },
+      annotations: { destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    guard('record_weight', async ({ weight_kg, date }) => {
+      const result = await kt.recordWeight(weight_kg, date);
+      return json({
+        recorded: true,
+        weight_kg: result.weight,
+        date: result.date,
+      });
+    }),
+  );
+
+  server.registerTool(
+    'get_weight_history',
+    {
+      title: 'Get weight history',
+      description:
+        'Retrieve recent body weight entries and history from Kalorické Tabulky monthly tracking statistics.',
+      inputSchema: {
+        date: z.string().optional().describe(dateDescription),
+      },
+    },
+    guard('get_weight_history', async ({ date }) => {
+      const history = await kt.getWeightHistory(date);
+      return json({
+        date: date ?? todayCzech(),
+        entries: history,
+      });
+    }),
+  );
 }

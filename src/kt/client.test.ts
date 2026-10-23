@@ -56,3 +56,12 @@ test('resolves meal names appropriately for Czech and Slovak domains', () => {
   assert.equal(getMealName('5', 'kaloricketabulky.sk'), 'Večera');
   assert.equal(getMealName('3', 'kaloricketabulky.cz'), 'Oběd');
 });
+
+test('validates body weight bounds and rejects invalid inputs', async () => {
+  const { KtClient } = await import('./client.js');
+  const client = new KtClient({ email: 'test@example.com', password: 'test' });
+  await assert.rejects(async () => client.recordWeight(0), /Invalid weight/);
+  await assert.rejects(async () => client.recordWeight(-5), /Invalid weight/);
+  await assert.rejects(async () => client.recordWeight(600), /Invalid weight/);
+  await assert.rejects(async () => client.recordWeight(Number.NaN), /Invalid weight/);
+});

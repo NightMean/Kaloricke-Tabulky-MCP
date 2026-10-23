@@ -122,6 +122,11 @@ export interface MealSummary {
   portions: number;
 }
 
+export interface WeightRecord {
+  date: string;
+  weight: number;
+}
+
 export class KtError extends Error {}
 
 /**
@@ -399,6 +404,40 @@ export class KtClient {
   /** Raw daily summary. Shape is not fully documented, so it is passed through. */
   async getDaySummary(date?: string): Promise<unknown> {
     return this.authed(`/statistic/summary/${date === undefined ? todayCzech() : assertCzechDate(date)}/get?format=json`);
+  }
+
+  /**
+   * Records body weight in kg for a given date (defaults to today).
+   * Endpoint: /user/weight/add?format=json&=
+   */
+  async recordWeight(weight: number, date?: string): Promise<{ recorded: boolean; weight: number; date: string }> {
+    if (typeof weight !== 'number' || !Number.isFinite(weight) || weight <= 0 || weight > 500) {
+      throw new KtError(`Invalid weight: ${weight}. Expected positive number in kg.`);
+    }
+    const formattedDate = date === undefined ? todayCzech() : assertCzechDate(date);
+    await this.authed('/user/weight/add?format=json&=', {
+      method: 'POST',
+      body: { weight, date: formattedDate },
+    });
+    return { recorded: true, weight, date: formattedDate };
+  }
+
+  /**
+   * Retrieves recent recorded body weights from the monthly summary.
+   */
+  async getWeightHistory(date?: string): Promise<WeightRecord[]> {
+    const summary = (await this.getDaySummary(date)) as Record<string, unknown> | null;
+    const monthWeight =
+      summary && typeof summary === 'object' && Array.isArray((summary as any)['monthWeight'])
+        ? ((summary as any)['monthWeight'] as unknown[])
+        : [];
+    return monthWeight
+      .filter((item: unknown): item is Record<string, unknown> => typeof item === 'object' && item !== null)
+      .map((item: Record<string, unknown>) => ({
+        date: String(item['description'] ?? ''),
+        weight: parseCzechNumber(item['value']) ?? (typeof item['value'] === 'number' ? item['value'] : 0),
+      }))
+      .filter((r: WeightRecord) => Boolean(r.date && r.weight > 0));
   }
 
   // ---------------------------------------------------------------------
