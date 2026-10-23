@@ -174,7 +174,22 @@ function summaryData(raw: unknown): Record<string, unknown> | null {
   return 'data' in raw ? (isRecord(raw['data']) ? raw['data'] : null) : raw;
 }
 
-/** Statistics contain energy/water; macro goals come from the separate diary summary. */
+function waterMetric(current: unknown, target: unknown, sourceUnit: unknown): SummaryMetric | null {
+  const unit = typeof sourceUnit === 'string' ? sourceUnit : null;
+  const scale = unit === 'l' ? 1000 : 1;
+  const amount = (value: unknown) => {
+    const parsed = parseCzechNumber(value);
+    const scaled = parsed === null ? null : parsed * scale;
+    return scaled !== null && Number.isFinite(scaled) ? scaled : null;
+  };
+  const currentAmount = amount(current);
+  const targetAmount = amount(target);
+  return currentAmount === null && targetAmount === null ? null : {
+    current: currentAmount, target: targetAmount, unit: unit === 'l' ? 'ml' : unit,
+  };
+}
+
+/** Energy comes from statistics; diary rows provide macro goals and more precise water values. */
 export function extractDaySummaryOverview(raw: unknown, diaryRaw?: unknown): DaySummaryOverview | null {
   const data = summaryData(raw);
   if (!data) return null;
@@ -192,15 +207,20 @@ export function extractDaySummaryOverview(raw: unknown, diaryRaw?: unknown): Day
 
   const energy = parseCzechNumber(data['todayEnergy']);
   const energyTarget = parseCzechNumber(data['todayEnergyTarget']);
-  const drinkUnit = typeof data['drinkUnit'] === 'string' ? data['drinkUnit'] : null;
-  // Keep the tool's millilitre output for litres; preserve other reported units.
-  const drinkScale = drinkUnit === 'l' ? 1000 : 1;
-  const drinkAmount = (value: unknown) => {
-    const amount = parseCzechNumber(value);
-    return amount === null ? null : amount * drinkScale;
-  };
-  const water = drinkAmount(data['todayDrink']);
-  const waterTarget = drinkAmount(data['todayDrinkTarget']);
+  const statisticsWater = waterMetric(data['todayDrink'], data['todayDrinkTarget'], data['drinkUnit']);
+  const items = diary?.['items'];
+  // This row has no code on the site; its volume unit distinguishes it from energy and weight.
+  const drinkItem = Array.isArray(items)
+    ? items.find((item: unknown) => isRecord(item) && (item['unit'] === 'l' || item['unit'] === 'ml'))
+    : undefined;
+  // The site's water actualValue may be 0 even when actual contains a nonzero amount.
+  const diaryWater = isRecord(drinkItem) ? waterMetric(drinkItem['actual'], drinkItem['goal'], drinkItem['unit']) : null;
+  const compatibleFallback = statisticsWater && statisticsWater.unit === diaryWater?.unit ? statisticsWater : null;
+  const water = diaryWater ? {
+    ...diaryWater,
+    current: diaryWater.current ?? compatibleFallback?.current ?? null,
+    target: diaryWater.target ?? compatibleFallback?.target ?? null,
+  } : statisticsWater;
 
   return {
     energy:
@@ -219,14 +239,7 @@ export function extractDaySummaryOverview(raw: unknown, diaryRaw?: unknown): Day
       fat: macro('fat'),
       fiber: macro('fiber'),
     },
-    water:
-      water !== null || waterTarget !== null
-        ? {
-            current: water,
-            target: waterTarget,
-            unit: drinkUnit === 'l' ? 'ml' : drinkUnit,
-          }
-        : null,
+    water,
   };
 }
 

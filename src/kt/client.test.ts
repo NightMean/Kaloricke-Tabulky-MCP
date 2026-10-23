@@ -139,6 +139,28 @@ test('summary distinguishes missing measurements from zero and does not invent u
   assert.deepEqual(overview.macros.protein, { current: null, target: null, unit: null });
 });
 
+test('water uses diary display precision because the numeric actualValue can be zero', () => {
+  const statistics = { todayDrink: '0,1', todayDrinkTarget: '2,8', drinkUnit: 'l' };
+  const diary = { items: [
+    { unit: 'kcal', actual: '1000', goal: '1800' },
+    { code: null, unit: 'l', actual: '0,09', actualValue: 0, goal: '2,84' },
+    { unit: 'kg', actual: '70' },
+  ] };
+  assert.deepEqual(extractDaySummaryOverview(statistics, diary)?.water, { current: 90, target: 2840, unit: 'ml' });
+  assert.deepEqual(extractDaySummaryOverview(statistics, { items: [{ unit: 'ml', actual: '0', goal: '2840' }] })?.water,
+    { current: 0, target: 2840, unit: 'ml' });
+});
+
+test('water falls back to statistics only for unavailable values with compatible units', () => {
+  const diary = { items: [{ unit: 'l', actual: 'unavailable', goal: '2,84' }] };
+  assert.deepEqual(extractDaySummaryOverview({ todayDrink: '0,1', drinkUnit: 'l' }, diary)?.water,
+    { current: 100, target: 2840, unit: 'ml' });
+  assert.deepEqual(extractDaySummaryOverview({ todayDrink: '1', drinkUnit: 'unknown' }, diary)?.water,
+    { current: null, target: 2840, unit: 'ml' });
+  assert.deepEqual(extractDaySummaryOverview({ todayDrink: 0, todayDrinkTarget: 2500, drinkUnit: 'ml' }, { items: null })?.water,
+    { current: 0, target: 2500, unit: 'ml' });
+});
+
 test('logMeal validates portion bounds and scales ingredients proportionally', async () => {
   const { KtClient } = await import('./client.js');
   const client = new KtClient({ email: 'test@example.com', password: 'test' });

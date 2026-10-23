@@ -64,8 +64,9 @@ Server komunikuje standardním protokolem MCP přes HTTPS s OAuth 2.1 a je otest
 </details>
 
 `get_day_summary` zachovává původní odpověď statistik v `summary` i aliasu
-`raw`. Přehled `overview` spojuje energii a vodu ze statistik s cíli makroživin
-ze samostatného souhrnu jídelníčku. Vodu v litrech převádí na mililitry;
+`raw`. Přehled `overview` spojuje energii ze statistik s vodou a cíli makroživin
+ze samostatného souhrnu jídelníčku. Voda používá přesnější zobrazené hodnoty
+jídelníčku; chybějící hodnoty doplní ze statistik. Litry převádí na mililitry;
 energie si zachovává jednotku webu. Chybějící hodnoty zůstávají `null`.
 Při selhání kteréhokoli API požadavku nástroj vrátí chybu.
 

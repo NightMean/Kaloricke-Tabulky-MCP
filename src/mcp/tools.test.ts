@@ -8,10 +8,11 @@ import { registerTools } from './tools.js';
 
 const statistics = {
   todayEnergy: '1 850,5', todayEnergyTarget: '2 200', energyUnit: 'kcal',
-  todayDrink: '2,1', todayDrinkTarget: '2,5', drinkUnit: 'l',
+  todayDrink: '0,1', todayDrinkTarget: '2,8', drinkUnit: 'l',
   monthWeight: [{ description: '23.10.2026', value: 80 }],
 };
 const diary = {
+  items: [{ code: null, unit: 'l', actual: '0,09', actualValue: 0, goal: '2,84' }],
   itemsDynamic: [[
     { code: 'protein', actual: '120,4', actualValue: 120.4, goal: '140', unit: 'g' },
     { code: 'carbohydrate', actual: '210', actualValue: 210, goal: '250', unit: 'g' },
@@ -73,7 +74,7 @@ test('day summary reads both endpoints and preserves the original summary field'
     fat: { current: 65.2, target: 70, unit: 'g' },
     fiber: { current: 28.5, target: 30, unit: 'g' },
   });
-  assert.deepEqual(payload.overview.water, { current: 2100, target: 2500, unit: 'ml' });
+  assert.deepEqual(payload.overview.water, { current: 90, target: 2840, unit: 'ml' });
   assert.deepEqual(requests, ['/login/create', '/statistic/summary/23.10.2026/get', '/user/diary/summary/23.10.2026/get']);
 });
 

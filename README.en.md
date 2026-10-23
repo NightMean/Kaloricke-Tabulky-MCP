@@ -64,8 +64,9 @@ The server communicates via standard MCP over HTTPS with OAuth 2.1 and is tested
 </details>
 
 `get_day_summary` keeps the original statistics response in `summary` and its
-`raw` alias. The `overview` combines energy and water from statistics with macro
-goals from the separate diary summary. Water reported in litres is converted to
+`raw` alias. The `overview` combines energy from statistics with water and macro
+goals from the separate diary summary. Water uses the diary's more precise
+display values, falling back to statistics when unavailable. Litres are converted to
 millilitres; energy retains the site's unit. Missing values remain `null`.
 If either API request fails, the tool reports an error.
 
