@@ -15,6 +15,7 @@ import { DiaryApi } from './diary.js';
 import { StatisticsApi } from './statistics.js';
 import { ActivitiesApi } from './activities.js';
 import { RecipesApi, scaleRecipeForm } from './recipes.js';
+import { PreferencesApi } from './preferences.js';
 
 export const DEFAULT_BASE_URL = 'https://www.kaloricketabulky.cz';
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
@@ -298,6 +299,7 @@ export class KtClient {
   readonly statistics = new StatisticsApi((path, init) => this.authed(path, init));
   readonly activities = new ActivitiesApi((path, init) => this.authed(path, init), this.diary);
   readonly recipes = new RecipesApi((path, init) => this.authed(path, init), this.diary);
+  readonly preferences = new PreferencesApi((path, init) => this.authed(path, init));
   private cookie: string | null = null;
   private loginInFlight: Promise<void> | null = null;
   readonly baseUrl: string;

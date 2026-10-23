@@ -77,6 +77,9 @@ Server komunikuje standardním protokolem MCP přes HTTPS s OAuth 2.1 a je otest
 | `edit_recipe` | Upraví uložený recept se zachováním viditelnosti; podporuje `dry_run`. |
 | `edit_diary_recipe` | Vynásobí aktuální zapsané množství hodnotou `factor`; podporuje `dry_run`. |
 | `upload_recipe_image` | Připojí PNG/JPEG v base64, nejvýše 5 MiB; podporuje `dry_run`. |
+| `get_favorites` / `get_common_items` | Načte oblíbené nebo často používané potraviny/aktivity. |
+| `set_favorite` | Přidá nebo odebere oblíbenou položku; podporuje `dry_run`. |
+| `get_profile` | Načte výživová nastavení a cíle bez přihlašovacích a platebních polí. |
 
 </details>
 

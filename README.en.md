@@ -77,6 +77,9 @@ The server communicates via standard MCP over HTTPS with OAuth 2.1 and is tested
 | `edit_recipe` | Edit saved recipe metadata/ingredients while preserving visibility; supports `dry_run`. |
 | `edit_diary_recipe` | Scale the current logged recipe by `factor`; supports `dry_run`. |
 | `upload_recipe_image` | Attach a PNG/JPEG image (base64, maximum 5 MiB); supports `dry_run`. |
+| `get_favorites` / `get_common_items` | Read favorite or commonly used foods/activities. |
+| `set_favorite` | Set or remove favorite membership; supports `dry_run`. |
+| `get_profile` | Read nutrition-related settings and goals; omits authentication/payment fields. |
 
 </details>
 

@@ -492,3 +492,28 @@ test('unsupported recipe forms fail clearly before any write', async t => {
   }
   assert.ok(!requests.includes('/user/meal/add'));
 });
+
+test('profile reads exclude credential, payment and contact fields by allowlist', async t => {
+  const { client } = await connectTools(t, url => {
+    assert.equal(url.pathname, '/user/settings/profile/form');
+    return Response.json({ code: 0, data: { energyUnit: 'kcal', weight: 80, ownTargetEnergy: 0,
+      email: 'private@example.invalid', password1: 'sensitive-fixture', gopayToken: 'payment-fixture', unknownFutureSecret: 'private' } });
+  });
+  const result = await client.callTool({ name: 'get_profile', arguments: {} });
+  assert.ok(Array.isArray(result.content) && result.content[0]?.type === 'text');
+  assert.deepEqual(JSON.parse(result.content[0].text).profile, { energyUnit: 'kcal', weight: 80, ownTargetEnergy: 0 });
+});
+
+test('favorite previews do not write and setting existing membership is a no-op', async t => {
+  const changes: string[] = [];
+  const { client } = await connectTools(t, url => {
+    if (url.pathname === '/user/settings/favorite/activity') return Response.json({ code: 0, data: [{ id: 'existing' }] });
+    changes.push(url.pathname); return Response.json({ code: 0 });
+  });
+  for (const args of [{ item_id: 'new', enabled: true, dry_run: true }, { item_id: 'existing', enabled: true }]) {
+    assert.ok(!(await client.callTool({ name: 'set_favorite', arguments: { kind: 'activity', ...args } })).isError);
+  }
+  assert.deepEqual(changes, []);
+  assert.ok(!(await client.callTool({ name: 'set_favorite', arguments: { kind: 'activity', item_id: 'new', enabled: true } })).isError);
+  assert.deepEqual(changes, ['/user/settings/favorite/activity/add/new']);
+});
