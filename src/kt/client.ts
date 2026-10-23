@@ -14,6 +14,7 @@ import { createHash } from 'node:crypto';
 import { DiaryApi } from './diary.js';
 import { StatisticsApi } from './statistics.js';
 import { ActivitiesApi } from './activities.js';
+import { RecipesApi, scaleRecipeForm } from './recipes.js';
 
 export const DEFAULT_BASE_URL = 'https://www.kaloricketabulky.cz';
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
@@ -296,6 +297,7 @@ export class KtClient {
   readonly diary = new DiaryApi((path, init) => this.authed(path, init));
   readonly statistics = new StatisticsApi((path, init) => this.authed(path, init));
   readonly activities = new ActivitiesApi((path, init) => this.authed(path, init), this.diary);
+  readonly recipes = new RecipesApi((path, init) => this.authed(path, init), this.diary);
   private cookie: string | null = null;
   private loginInFlight: Promise<void> | null = null;
   readonly baseUrl: string;
@@ -313,12 +315,14 @@ export class KtClient {
       Accept: 'application/json',
     };
     if (this.cookie) headers['Cookie'] = this.cookie;
-    if (init.body !== undefined) headers['Content-Type'] = 'application/json';
+    const multipart = init.body instanceof FormData;
+    if (init.body !== undefined && !multipart) headers['Content-Type'] = 'application/json';
 
     const response = await fetch(this.baseUrl + path, {
       method: init.method ?? 'GET',
       headers,
-      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      body: multipart ? init.body as FormData : init.body === undefined ? undefined : JSON.stringify(init.body),
+      signal: AbortSignal.timeout(20_000),
       redirect: 'manual',
     });
 
@@ -555,8 +559,10 @@ export class KtClient {
   // ---------------------------------------------------------------------
 
   /** The user's saved recipes. */
-  async listMeals(): Promise<MealSummary[]> {
-    const data = await this.authed('/user/settings/meal/list?format=json&limit=100');
+  async listMeals(options: { page?: number; limit?: number; query?: string } = {}): Promise<MealSummary[]> {
+    const { page = 0, limit = 100, query = '' } = options;
+    if (!Number.isInteger(page) || page < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new KtError('Invalid recipe pagination');
+    const data = await this.authed(`/user/settings/meal/list?format=json&limit=${limit}&page=${page}&query=${encodeURIComponent(query)}`);
     if (!Array.isArray(data)) throw new KtError('meal list: expected an array');
     return data
       .filter((m): m is Record<string, unknown> => !!m && typeof m === 'object')
@@ -653,44 +659,8 @@ export class KtClient {
       throw new KtError(`Invalid portions: ${portions}. Expected positive number.`);
     }
 
-    const form = await this.authed(
-      `/user/meal/add/form/${encodeURIComponent(args.mealId)}?format=json`,
-    );
-    if (!isRecord(form) || !Array.isArray(form['foodstuff']) || form['foodstuff'].length === 0) {
-      throw new KtError('meal add form: expected a recipe with ingredients');
-    }
-    const percentUnit = Array.isArray(form['units'])
-      ? form['units'].find((unit: unknown) => isRecord(unit) && unit['multiplier'] === -1 && typeof unit['id'] === 'string')
-      : undefined;
-    if (!isRecord(percentUnit)) throw new KtError('meal add form: no percentage unit available for recipe scaling');
-    const percentage = portions * 100;
-    if (!Number.isFinite(percentage)) throw new KtError('Invalid portions: percentage exceeds the supported numeric range');
-
-    const payload: Record<string, unknown> = { ...form };
-    payload['diaryTimeGuid'] = args.meal;
-    payload['date'] = date;
-    // The site labels the diary entry from selectedUnitMultiplier, not count.
-    // Use a unit actually offered by this form; not every recipe has portions.
-    payload['selectedUnitGuid'] = percentUnit['id'];
-    payload['selectedUnitMultiplier'] = percentage;
-    delete payload['count'];
-
-    payload['foodstuff'] = form['foodstuff'].map((rawItem: unknown, index: number) => {
-      if (!isRecord(rawItem)) throw new KtError(`meal add form: ingredient ${index + 1} must be an object`);
-      const item = { ...rawItem };
-      if (typeof item['selectedUnitGuidOriginal'] === 'string') item['selectedUnitGuid'] = item['selectedUnitGuidOriginal'];
-      if (item['selected'] === false) {
-        item['count'] = 0;
-        return item;
-      }
-      const base = parseCzechNumber(item['countOriginal'] ?? item['count']);
-      if (base === null || base < 0 || !Number.isFinite(base * portions)) {
-        throw new KtError(`meal add form: ingredient ${index + 1} must have a finite, nonnegative original count`);
-      }
-      item['count'] = base * portions;
-      return item;
-    });
-
+    const form = await this.authed(`/user/meal/add/form/${encodeURIComponent(args.mealId)}?format=json`);
+    const payload = { ...scaleRecipeForm(form, portions), diaryTimeGuid: args.meal, date };
     await this.authed('/user/meal/add?format=json&=', { method: 'POST', body: payload });
   }
 

@@ -238,6 +238,72 @@ const detailedDiary = {
   activities: [{ id: 'activity-one', selected: true }], notes: [],
 };
 
+test('recipe editing preserves unrelated metadata and uses native ingredient forms', async t => {
+  const writes: any[] = [];
+  const { client } = await connectTools(t, (url, init) => {
+    if (url.pathname === '/user/settings/meal/edit/form/recipe-one/') return Response.json({ code: 0,
+      data: { guid: 'recipe-one', title: 'Original', visibility: 'private', lang: 'sk', items: [{ guid: 'old' }], tags: ['keep'] } });
+    if (url.pathname === '/recipe/form/item/liquid-one') return Response.json({ code: 0,
+      data: { guid: 'liquid-one', units: [{ id: 'ml', multiplier: 1 }, { id: 'glass', multiplier: 200 }] } });
+    assert.equal(url.pathname, '/user/settings/meal/detail/edit/recipe-one');
+    writes.push(JSON.parse(String(init?.body)));
+    return Response.json({ code: 0 });
+  });
+  const args = { meal_id: 'recipe-one', title: 'Changed', instructions: ['Mix'], servings: 2,
+    ingredients: [{ food_id: 'liquid-one', amount: 150 }] };
+  assert.ok(!(await client.callTool({ name: 'edit_recipe', arguments: { ...args, dry_run: true } })).isError);
+  assert.equal(writes.length, 0);
+  assert.ok(!(await client.callTool({ name: 'edit_recipe', arguments: args })).isError);
+  assert.equal(writes[0].visibility, 'private');
+  assert.equal(writes[0].lang, 'sk');
+  assert.deepEqual(writes[0].tags, ['keep']);
+  assert.deepEqual(writes[0].description, [{ description: 'Mix' }]);
+  assert.equal(writes[0].portions, '2');
+  assert.equal(writes[0].items[0].selectedUnitGuid, 'ml');
+  assert.equal(writes[0].items[0].unitCount, 150);
+  assert.equal((await client.callTool({ name: 'edit_recipe', arguments: { meal_id: 'recipe-one' } })).isError, true);
+});
+
+test('logged recipe edits scale the existing count and display label together', async t => {
+  const writes: any[] = [];
+  const { client } = await connectTools(t, (url, init) => {
+    if (url.pathname === '/user/diary/24.10.2026/get') return Response.json({ code: 0, data: detailedDiary });
+    if (url.pathname === '/user/diary/meal/edit/form/entry-one') return Response.json({ code: 0,
+      data: { ...recipeForm, guidDiary: 'entry-one', selectedUnitGuid: '0000000000000003', selectedUnitMultiplier: 50,
+        foodstuff: [{ selected: true, count: 50, countOriginal: 50, selectedUnitGuidOriginal: GRAM_UNIT }] } });
+    assert.equal(url.pathname, '/user/meal/edit');
+    writes.push(JSON.parse(String(init?.body)));
+    return Response.json({ code: 0 });
+  });
+  assert.ok(!(await client.callTool({ name: 'edit_diary_recipe', arguments: { entry_id: 'entry-one', date: '24.10.2026', factor: 0.5 } })).isError);
+  assert.equal(writes[0].foodstuff[0].count, 25);
+  assert.equal(writes[0].selectedUnitMultiplier, 25);
+  assert.equal(writes[0].guidDiary, 'entry-one');
+});
+
+const tinyPng = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+
+test('recipe images validate bytes and upload as multipart without a JSON content type', async t => {
+  let uploads = 0;
+  const { client, requests } = await connectTools(t, (url, init) => {
+    if (url.pathname === '/user/settings/meal/edit/form/recipe-one/') return Response.json({ code: 0,
+      data: { guid: 'recipe-one', title: 'Recipe', items: [] } });
+    assert.equal(url.pathname, '/user/settings/meal/detail/recipe-one/image/create');
+    assert.ok(init?.body instanceof FormData);
+    assert.equal(new Headers(init.headers).has('Content-Type'), false);
+    assert.ok(init.body.get('file') instanceof Blob);
+    uploads++;
+    return Response.json({ code: 0 });
+  });
+  const args = { meal_id: 'recipe-one', content_type: 'image/png', image_base64: tinyPng };
+  assert.equal((await client.callTool({ name: 'upload_recipe_image', arguments: { ...args, image_base64: 'not an image' } })).isError, true);
+  assert.deepEqual(requests, []);
+  assert.ok(!(await client.callTool({ name: 'upload_recipe_image', arguments: { ...args, dry_run: true } })).isError);
+  assert.equal(uploads, 0);
+  assert.ok(!(await client.callTool({ name: 'upload_recipe_image', arguments: args })).isError);
+  assert.equal(uploads, 1);
+});
+
 test('activity logging converts minutes to native hours and previews perform no writes', async t => {
   const writes: any[] = [];
   const { client } = await connectTools(t, (url, init) => {

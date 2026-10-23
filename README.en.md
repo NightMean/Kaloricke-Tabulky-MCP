@@ -70,9 +70,13 @@ The server communicates via standard MCP over HTTPS with OAuth 2.1 and is tested
 | `get_tracking_tips` | Read the website's tips for a date range. |
 | `get_tracking_streak` | Read tracking streak information for a date. |
 | `create_meal` | Save a recipe built from existing foods. |
-| `list_my_meals` | List saved recipes with their ids and total energy. |
+| `list_my_meals` | List saved recipes with ids/energy, query filtering and zero-based `page`/`limit` pagination. |
 | `log_meal` | Log a saved recipe into the diary with optional portion scaling (supports `dry_run: true`). |
 | `delete_meal` | Delete a saved recipe. |
+| `get_recipe` | Read saved recipe ingredients, instructions, servings and image metadata. |
+| `edit_recipe` | Edit saved recipe metadata/ingredients while preserving visibility; supports `dry_run`. |
+| `edit_diary_recipe` | Scale the current logged recipe by `factor`; supports `dry_run`. |
+| `upload_recipe_image` | Attach a PNG/JPEG image (base64, maximum 5 MiB); supports `dry_run`. |
 
 </details>
 
@@ -117,6 +121,16 @@ For example, `portions: 0.5` scales every selected ingredient by half and
 appears as `50 %` in the website diary. The client uses the form's supported
 percentage unit and `selectedUnitMultiplier`; changing `count` alone does not
 set the displayed quantity correctly.
+
+`edit_diary_recipe.factor` multiplies the **current diary entry**, unlike
+`log_meal.portions`, which multiplies the whole saved recipe. Halving an
+already logged half recipe therefore leaves a quarter recipe and a `25 %`
+label. Editing a saved recipe does not change historical diary entries.
+`edit_recipe.ingredients` replaces all ingredients; omitted fields and the
+recipe's visibility are preserved. An empty instruction list clears the steps.
+Image upload adds an attachment; inspect `get_recipe` after an uncertain
+failure before retrying. API requests time out after 20 seconds without
+automatically repeating an uncertain write.
 
 ## How it works
 

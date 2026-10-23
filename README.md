@@ -70,9 +70,13 @@ Server komunikuje standardním protokolem MCP přes HTTPS s OAuth 2.1 a je otest
 | `get_tracking_tips` | Načte doporučení webu pro interval dat. |
 | `get_tracking_streak` | Načte informace o pravidelnosti zapisování. |
 | `create_meal` | Uloží recept složený z existujících potravin. |
-| `list_my_meals` | Vypíše uložené recepty s jejich id a celkovou energií. |
+| `list_my_meals` | Vypíše recepty s ID a energií; podporuje filtr `query` a stránky `page`/`limit` od nuly. |
 | `log_meal` | Zaloguje uložený recept do jídelníčku s možností škálování porce (podporuje `dry_run: true`). |
 | `delete_meal` | Smaže uložený recept. |
+| `get_recipe` | Načte suroviny, postup, počet porcí a informace o obrázcích receptu. |
+| `edit_recipe` | Upraví uložený recept se zachováním viditelnosti; podporuje `dry_run`. |
+| `edit_diary_recipe` | Vynásobí aktuální zapsané množství hodnotou `factor`; podporuje `dry_run`. |
+| `upload_recipe_image` | Připojí PNG/JPEG v base64, nejvýše 5 MiB; podporuje `dry_run`. |
 
 </details>
 
@@ -115,6 +119,15 @@ Například `portions: 0.5` použije polovinu každé vybrané suroviny a na web
 se zobrazí jako `50 %`. Klient používá procentní jednotku dostupnou ve formuláři
 a pole `selectedUnitMultiplier`; samotná změna `count` nezajistí správné
 zobrazení množství.
+
+`edit_diary_recipe.factor` násobí aktuální zapsané množství. Polovina již
+zapsané poloviny je čtvrtina receptu s popiskem `25 %`. Oproti tomu
+`log_meal.portions` násobí celý uložený recept. Úprava uloženého receptu
+nemění starší záznamy. `edit_recipe.ingredients` nahrazuje celý seznam
+surovin; vynechaná pole a viditelnost zůstávají zachovány. Prázdný seznam
+postupu smaže jednotlivé kroky. Obrázek se připojuje jako další příloha;
+při ztrátě odpovědi před opakováním zkontrolujte `get_recipe`.
+Požadavky mají časový limit 20 sekund; nejisté zápisy se neopakují.
 
 ## Jak to funguje
 

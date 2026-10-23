@@ -11,6 +11,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerDiaryTools } from './diary-tools.js';
 import { registerStatisticsTools } from './statistics-tools.js';
 import { registerActivityTools } from './activity-tools.js';
+import { registerRecipeTools } from './recipe-tools.js';
 import { guard, json } from './shared.js';
 import {
   GRAM_UNIT,
@@ -45,6 +46,7 @@ export function registerTools(server: McpServer, kt: KtClient): void {
   registerDiaryTools(server, kt);
   registerStatisticsTools(server, kt);
   registerActivityTools(server, kt);
+  registerRecipeTools(server, kt);
   server.registerTool(
     'search_food',
     {
@@ -217,10 +219,11 @@ export function registerTools(server: McpServer, kt: KtClient): void {
       title: 'List saved recipes',
       description:
         "List the user's own saved recipes with their ids and total energy. Call this before log_meal to find the right recipe id, or when the user asks what recipes they have saved.",
-      inputSchema: {},
+      inputSchema: { page: z.number().int().min(0).default(0), limit: z.number().int().min(1).max(100).default(100), query: z.string().max(200).default('') },
     },
-    guard('list_my_meals', async () => {
-      return json({ meals: await kt.listMeals() });
+    guard('list_my_meals', async ({ page, limit, query }) => {
+      const meals = await kt.listMeals({ page, limit, query });
+      return json({ meals, page, limit, may_have_more: meals.length === limit });
     }),
   );
 

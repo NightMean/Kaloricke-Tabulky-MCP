@@ -208,3 +208,20 @@ test('logMeal validates portion bounds and scales ingredients proportionally', a
   assert.equal(items[3]?.count, 0.0005);
 });
 
+
+test('recipe scaling preserves ingredient ratios for small, full and multiple quantities', async () => {
+  const { scaleRecipeForm } = await import('./recipes.js');
+  const form = { units: [{ id: 'percent', multiplier: -1 }], foodstuff: [
+    { countOriginal: '2,5', selectedUnitGuid: 'different', selectedUnitGuidOriginal: 'piece' },
+    { countOriginal: 100.25, selectedUnitGuidOriginal: 'ml' },
+  ] };
+  for (const factor of [0.001, 0.5, 1, 2, 50]) {
+    const scaled = scaleRecipeForm(form, factor);
+    const items = scaled['foodstuff'] as Array<Record<string, unknown>>;
+    assert.equal(items[0]?.['count'], 2.5 * factor);
+    assert.equal(items[1]?.['count'], 100.25 * factor);
+    assert.equal(items[0]?.['selectedUnitGuid'], 'piece');
+    assert.equal(scaled['selectedUnitMultiplier'], factor * 100);
+  }
+  assert.equal(form.foodstuff[0]?.countOriginal, '2,5');
+});
