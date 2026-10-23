@@ -138,3 +138,38 @@ test('summary distinguishes missing measurements from zero and does not invent u
   assert.deepEqual(overview.water, { current: 1, target: null, unit: null });
   assert.deepEqual(overview.macros.protein, { current: null, target: null, unit: null });
 });
+
+test('logMeal validates portion bounds and scales ingredients proportionally', async () => {
+  const { KtClient } = await import('./client.js');
+  const client = new KtClient({ email: 'test@example.com', password: 'test' });
+
+  await assert.rejects(async () => client.logMeal({ mealId: '123', meal: '1', portions: 0 }), /Invalid portions/);
+  await assert.rejects(async () => client.logMeal({ mealId: '123', meal: '1', portions: -2 }), /Invalid portions/);
+  await assert.rejects(async () => client.logMeal({ mealId: '123', meal: '1', portions: Number.NaN }), /Invalid portions/);
+
+  let postedPayload: Record<string, unknown> | null = null;
+  (client as any).authed = async (path: string, init?: { method?: string; body?: unknown }) => {
+    if (path.includes('/form/')) {
+      return {
+        foodstuff: [
+          { foodId: 'f1', count: '100', countOriginal: '100' },
+          { foodId: 'f2', count: '2,5', countOriginal: '2,5' },
+        ],
+      };
+    }
+    if (path.includes('/user/meal/add')) {
+      postedPayload = init?.body as Record<string, unknown>;
+      return { code: 0 };
+    }
+    return {};
+  };
+
+  await client.logMeal({ mealId: 'recipe1', meal: '1', portions: 0.5 });
+  assert.ok(postedPayload);
+  const payloadRecord = postedPayload as Record<string, unknown>;
+  assert.equal(payloadRecord['count'], 0.5);
+  const items = payloadRecord['foodstuff'] as Array<{ foodId: string; count: number }>;
+  assert.equal(items[0]?.count, 50);
+  assert.equal(items[1]?.count, 1.25);
+});
+

@@ -253,12 +253,19 @@ export function registerTools(server: McpServer, kt: KtClient): void {
     {
       title: 'Log a saved recipe to the diary',
       description:
-        "Log one of the user's saved recipes into their diary as a single entry. Find the recipe id with list_my_meals first. " +
-        'Set dry_run: true to preview the recipe details without writing to the diary. ' +
-        'The whole recipe is always logged — the site provides no way to log a fraction of one. If the user ate only part of a recipe, log the individual ingredients with log_food instead.',
+        "Log one of the user's saved recipes into their diary. Find the recipe id with list_my_meals first. " +
+        'Supports full or partial portions (e.g. 1 for full, 0.5 for half, or 2 for double). ' +
+        'Set dry_run: true to preview the recipe details without writing to the diary.',
       inputSchema: {
         meal_id: z.string().min(1).describe('Recipe id from list_my_meals.'),
         meal: z.enum(MEAL_IDS).describe(mealDescription),
+        portions: z
+          .number()
+          .positive()
+          .max(50)
+          .optional()
+          .default(1)
+          .describe('Portion multiplier, e.g. 1 for full recipe, 0.5 for half portion, or 2 for double. Defaults to 1.'),
         date: dateSchema,
         dry_run: z
           .boolean()
@@ -268,30 +275,38 @@ export function registerTools(server: McpServer, kt: KtClient): void {
       },
       annotations: { destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
-    guard('log_meal', async ({ meal_id, meal, date, dry_run }) => {
+    guard('log_meal', async ({ meal_id, meal, portions, date, dry_run }) => {
       const formattedDate = date ?? todayCzech();
+      const portionCount = portions ?? 1;
       // Listing is required to preview a recipe, but not to log one by its id.
       const recipeRead = kt.listMeals();
       const recipes = await (dry_run ? recipeRead : recipeRead.catch(() => []));
       const logged = recipes.find(m => m.id === meal_id);
+      const scaledEnergy =
+        logged && logged.energy !== null
+          ? `${Math.round(logged.energy * portionCount * 10) / 10} ${logged.energyUnit}`
+          : null;
+
       if (dry_run) {
         if (!logged) throw new KtError(`Unknown saved recipe id ${meal_id}. Call list_my_meals to select an existing recipe.`);
         return json({
           preview: true,
           dry_run: true,
           recipe: logged?.title ?? meal_id,
-          energy: logged && logged.energy !== null ? `${logged.energy} ${logged.energyUnit}` : null,
+          portions: portionCount,
+          energy: scaledEnergy,
           meal: getMealName(meal, kt.baseUrl),
           date: formattedDate,
           note: 'Preview only — recipe was not written to diary. Call with dry_run: false to commit.',
         });
       }
-      await kt.logMeal({ mealId: meal_id, meal, date: formattedDate });
+      await kt.logMeal({ mealId: meal_id, meal, date: formattedDate, portions: portionCount });
       return json({
         logged: true,
         dry_run: false,
         recipe: logged?.title ?? meal_id,
-        energy: logged && logged.energy !== null ? `${logged.energy} ${logged.energyUnit}` : null,
+        portions: portionCount,
+        energy: scaledEnergy,
         meal: getMealName(meal, kt.baseUrl),
         date: formattedDate,
       });

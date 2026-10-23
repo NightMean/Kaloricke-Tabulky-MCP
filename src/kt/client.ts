@@ -621,28 +621,38 @@ export class KtClient {
   }
 
   /**
-   * Logs a whole saved recipe into the diary.
+   * Logs a saved recipe into the diary with optional portion scaling.
    *
-   * Partial portions are deliberately not offered. The meal-add form exposes
-   * `count` against portion/percent/gram pseudo-units, but the server ignores
-   * it and logs the entire recipe whichever unit is used — measured against a
-   * 249 kcal recipe, `count` of 0.5 portions and of half the total weight both
-   * added the full 249. Rather than accept a `portions` argument that silently
-   * does nothing, log the whole recipe and let the caller log ingredients
-   * individually when they ate part of one.
+   * The server persists the recipe by logging its constituent food items.
+   * To support partial (e.g. 0.5) or multiple (e.g. 2) portions accurately,
+   * we scale each ingredient's count proportionally from its original amount.
    */
-  async logMeal(args: { mealId: string; meal: MealId; date?: string }): Promise<void> {
+  async logMeal(args: { mealId: string; meal: MealId; date?: string; portions?: number }): Promise<void> {
     const date = args.date === undefined ? todayCzech() : assertCzechDate(args.date);
+    const portions = args.portions ?? 1;
+    if (typeof portions !== 'number' || !Number.isFinite(portions) || portions <= 0) {
+      throw new KtError(`Invalid portions: ${portions}. Expected positive number.`);
+    }
+
     const form = (await this.authed(
       `/user/meal/add/form/${encodeURIComponent(args.mealId)}?format=json`,
     )) as Record<string, unknown>;
 
-    // As in logFood: post the form back whole, as the site's frontend does.
     const payload: Record<string, unknown> = { ...form };
     payload['diaryTimeGuid'] = args.meal;
     payload['date'] = date;
     payload['selectedUnitGuid'] = PORTION_UNIT;
-    payload['count'] = 1;
+    payload['count'] = portions;
+
+    if (Array.isArray(payload['foodstuff'])) {
+      payload['foodstuff'] = payload['foodstuff'].map((rawItem: unknown) => {
+        if (!rawItem || typeof rawItem !== 'object') return rawItem;
+        const item = { ...(rawItem as Record<string, unknown>) };
+        const base = parseCzechNumber(item['countOriginal']) ?? parseCzechNumber(item['count']) ?? 1;
+        item['count'] = Math.round(base * portions * 1000) / 1000;
+        return item;
+      });
+    }
 
     await this.authed('/user/meal/add?format=json&=', { method: 'POST', body: payload });
   }
