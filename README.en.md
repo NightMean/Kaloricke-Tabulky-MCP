@@ -60,6 +60,10 @@ The server communicates via standard MCP over HTTPS with OAuth 2.1 and is tested
 | `delete_diary_entry` | Delete one logged food/recipe or activity; supports `dry_run`. |
 | `move_diary_food` | Move a food/recipe to another slot or date; supports `dry_run`. |
 | `copy_diary_entries` | Copy selected entry IDs to another date; supports `dry_run`. |
+| `search_activity` | Search activities with zero-based pagination. |
+| `get_activity` | Read a database activity and its native duration unit. |
+| `log_activity` | Record activity duration in minutes, with optional `HH:mm` time and `dry_run`. |
+| `edit_diary_activity` | Replace a logged activity duration; supports `dry_run`. |
 | `record_weight` | Log user body weight (kg) for a given date (supports `dry_run: true`). |
 | `get_weight_history` | Retrieve recent body weight entries from monthly tracking statistics. |
 | `get_statistics` | Read energy, nutrient, water, weight or custom measurement series for an explicit `from`/`to` range. |

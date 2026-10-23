@@ -60,6 +60,10 @@ Server komunikuje standardním protokolem MCP přes HTTPS s OAuth 2.1 a je otest
 | `delete_diary_entry` | Smaže zapsanou potravinu/recept nebo aktivitu; podporuje `dry_run`. |
 | `move_diary_food` | Přesune položku do jiného chodu nebo dne; podporuje `dry_run`. |
 | `copy_diary_entries` | Zkopíruje vybraná ID do jiného dne; podporuje `dry_run`. |
+| `search_activity` | Vyhledá aktivity; stránky se číslují od nuly. |
+| `get_activity` | Načte aktivitu a její jednotku trvání. |
+| `log_activity` | Zapíše trvání v minutách, volitelný čas `HH:mm`; podporuje `dry_run`. |
+| `edit_diary_activity` | Změní trvání zapsané aktivity; podporuje `dry_run`. |
 | `record_weight` | Zapíše tělesnou hmotnost (kg) uživatele k danému dni (podporuje `dry_run: true`). |
 | `get_weight_history` | Načte historii záznamů tělesné hmotnosti z měsíčních statistik. |
 | `get_statistics` | Načte energii, živiny, vodu, hmotnost nebo vlastní měření pro interval `from`/`to`. |

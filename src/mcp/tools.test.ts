@@ -238,6 +238,46 @@ const detailedDiary = {
   activities: [{ id: 'activity-one', selected: true }], notes: [],
 };
 
+test('activity logging converts minutes to native hours and previews perform no writes', async t => {
+  const writes: any[] = [];
+  const { client } = await connectTools(t, (url, init) => {
+    if (url.pathname === '/user/activity/add/form/activity-one') return Response.json({ code: 0,
+      data: { guid: 'activity-one', title: 'Chôdza', time: 1, timeUnit: 'hrs', days: ['unexpected'], timeUser: true } });
+    assert.equal(url.pathname, '/user/activity/add');
+    assert.equal(init?.method, 'POST');
+    writes.push(JSON.parse(String(init.body)));
+    return Response.json({ code: 0 });
+  });
+  const args = { activity_id: 'activity-one', date: '24.10.2026', duration_minutes: 30, time: '09:30' };
+  assert.ok(!(await client.callTool({ name: 'log_activity', arguments: { ...args, dry_run: true } })).isError);
+  assert.equal(writes.length, 0);
+  assert.ok(!(await client.callTool({ name: 'log_activity', arguments: args })).isError);
+  assert.equal(writes[0].time, 0.5);
+  assert.equal(writes[0].timeOfInsert, '09:30');
+  assert.equal(writes[0].timeUser, true);
+  assert.equal(writes[0].date, '24.10.2026');
+  assert.equal(writes[0].days, null);
+});
+
+test('activity corrections use entry IDs and validate the original duration unit', async t => {
+  let unit = 'hrs';
+  const writes: any[] = [];
+  const { client } = await connectTools(t, (url, init) => {
+    if (url.pathname === '/user/diary/24.10.2026/get') return Response.json({ code: 0, data: detailedDiary });
+    if (url.pathname === '/user/diary/activity/unit/form/activity-one') return Response.json({ code: 0,
+      data: { diaryGuid: 'activity-one', multiplier: 1, unit } });
+    assert.equal(url.pathname, '/user/diary/activity/unit/edit');
+    writes.push(JSON.parse(String(init?.body)));
+    return Response.json({ code: 0 });
+  });
+  const args = { entry_id: 'activity-one', date: '24.10.2026', duration_minutes: 15 };
+  assert.ok(!(await client.callTool({ name: 'edit_diary_activity', arguments: args })).isError);
+  assert.equal(writes[0].multiplier, 0.25);
+  unit = 'unknown';
+  assert.equal((await client.callTool({ name: 'edit_diary_activity', arguments: args })).isError, true);
+  assert.equal(writes.length, 1);
+});
+
 test('range statistics preserve raw series and validate all range and metric inputs before requests', async t => {
   const raw = { unit: 'kg', values: [null, '80,1'], from: 1, to: 2 };
   const { client, requests } = await connectTools(t, url => {
