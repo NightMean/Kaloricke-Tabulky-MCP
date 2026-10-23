@@ -38,7 +38,9 @@ app.disable('x-powered-by');
 // /authorize. nginx overwrites that header with Cloudflare's verified client
 // IP, so this resolves to the real caller.
 app.set('trust proxy', 1);
-app.use(express.json({ limit: '1mb' }));
+const ordinaryJson = express.json({ limit: '1mb' });
+// Image base64 needs a larger MCP body; authenticate before allocating it.
+app.use((req, res, next) => /^\/mcp\/?$/i.test(req.path) ? next() : ordinaryJson(req, res, next));
 app.use(express.urlencoded({ extended: false }));
 
 /**
@@ -84,7 +86,7 @@ const requireAuth = requireBearerAuth({
  * so each POST is self-contained — statelessness is the intended shape here,
  * and it means a redeploy can never strand a half-open session.
  */
-app.post('/mcp', requireAuth, async (req, res) => {
+app.post('/mcp', requireAuth, express.json({ limit: '7mb' }), async (req, res) => {
   const server = new McpServer(
     { name: 'kaloricketabulky', version: '0.1.0' },
     {

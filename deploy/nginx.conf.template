@@ -49,7 +49,8 @@ server {
     proxy_read_timeout 300s;
     proxy_send_timeout 300s;
 
-    client_max_body_size 4m;
+    # Five MiB of image bytes expands to about seven MiB in base64 JSON.
+    client_max_body_size 7m;
 
     location / {
         proxy_pass http://$kt_mcp:8092;

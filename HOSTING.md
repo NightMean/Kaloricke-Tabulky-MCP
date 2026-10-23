@@ -47,3 +47,12 @@ your PC sleeps overnight, your scheduled morning entries won't happen. The
 Cloudflare tunnel reconnects by itself when the machine wakes, so outages are
 only temporary, but for a food diary that is mostly useful when it is complete,
 an always-on box is worth it.
+# Request and document sizes
+
+The MCP route accepts authenticated JSON requests up to 7 MiB, allowing
+`upload_recipe_image` to carry up to 5 MiB of PNG/JPEG bytes as base64.
+The bundled nginx template uses the same 7 MiB limit. Update/reload that
+template when upgrading an existing deployment; a custom reverse proxy
+must also allow this size. OAuth and other JSON routes retain a 1 MiB limit.
+Document exports are streamed from KT into a bounded buffer (maximum 5 MiB)
+and returned as embedded MCP resources. They are not saved on the server.
