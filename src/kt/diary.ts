@@ -82,4 +82,21 @@ export class DiaryApi {
     return { preview: args.dryRun, copied: !args.dryRun, source_date: args.date, target_date: args.targetDate, entry_ids: args.ids,
       note: 'Copy adds new entries. After an uncertain network failure, inspect the destination diary before retrying.' };
   }
+
+  async addNote(date: string, meal: MealId, text: string, dryRun: boolean): Promise<ApiRecord> {
+    assertCzechDate(date);
+    if (!text.trim() || text.length > 10000) throw new KtError('Note must contain 1–10000 characters');
+    if (!dryRun) await this.request('/user/diary/note/add?format=json', { method: 'POST', body: { date, time: meal, note: text } });
+    return { preview: dryRun, added: !dryRun, date, meal, note: text };
+  }
+
+  async deleteNote(date: string, id: string, dryRun: boolean): Promise<ApiRecord> {
+    apiId(id);
+    const diary = await this.get(date);
+    const notes = [diary.raw['notes'], ...diary.times.map(time => time['notes'])]
+      .flatMap(value => value == null ? [] : records(value, 'diary notes'));
+    if (!notes.some(note => note['id'] === id)) throw new KtError(`No note ${id} on ${date}`);
+    if (!dryRun) await this.request(`/user/diary/note/delete/${apiId(id)}?format=json`);
+    return { preview: dryRun, deleted: !dryRun, date, note_id: id };
+  }
 }

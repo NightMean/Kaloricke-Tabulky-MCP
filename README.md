@@ -60,6 +60,7 @@ Server komunikuje standardním protokolem MCP přes HTTPS s OAuth 2.1 a je otest
 | `delete_diary_entry` | Smaže zapsanou potravinu/recept nebo aktivitu; podporuje `dry_run`. |
 | `move_diary_food` | Přesune položku do jiného chodu nebo dne; podporuje `dry_run`. |
 | `copy_diary_entries` | Zkopíruje vybraná ID do jiného dne; podporuje `dry_run`. |
+| `add_diary_note` / `delete_diary_note` | Přidá poznámku k chodu nebo ji smaže podle data a ID; podporuje `dry_run`. |
 | `search_activity` | Vyhledá aktivity; stránky se číslují od nuly. |
 | `get_activity` | Načte aktivitu a její jednotku trvání. |
 | `log_activity` | Zapíše trvání v minutách, volitelný čas `HH:mm`; podporuje `dry_run`. |

@@ -4,6 +4,14 @@ import type { KtClient } from '../kt/client.js';
 import { dryRun, entryId, guard, json, mealIds, mutation, readOnly, requiredDate } from './shared.js';
 
 export function registerDiaryTools(server: McpServer, kt: KtClient): void {
+  server.registerTool('add_diary_note', {
+    description: 'Add a text note to a diary meal slot for a date. Supports dry_run. After an uncertain failure, inspect notes with get_diary before retrying.',
+    inputSchema: { date: requiredDate, meal: z.enum(mealIds), text: z.string().min(1).max(10000), dry_run: dryRun }, annotations: mutation,
+  }, guard('add_diary_note', async ({ date, meal, text, dry_run }) => json(await kt.diary.addNote(date, meal, text, dry_run))));
+  server.registerTool('delete_diary_note', {
+    description: 'Delete one note ID returned by get_diary. Checks that the note belongs to the supplied date; supports dry_run.',
+    inputSchema: { date: requiredDate, note_id: entryId, dry_run: dryRun }, annotations: mutation,
+  }, guard('delete_diary_note', async ({ date, note_id, dry_run }) => json(await kt.diary.deleteNote(date, note_id, dry_run))));
   server.registerTool('get_diary', {
     description: 'Read the complete diary for a date: meal slots, individual food/recipe entry IDs, quantities, activities and notes. Use these IDs for corrections; summary tools do not return them.',
     inputSchema: { date: requiredDate }, annotations: readOnly,

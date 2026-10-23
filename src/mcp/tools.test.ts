@@ -517,3 +517,18 @@ test('favorite previews do not write and setting existing membership is a no-op'
   assert.ok(!(await client.callTool({ name: 'set_favorite', arguments: { kind: 'activity', item_id: 'new', enabled: true } })).isError);
   assert.deepEqual(changes, ['/user/settings/favorite/activity/add/new']);
 });
+
+test('note previews and missing note IDs cannot invoke writes or deletion', async t => {
+  const changes: string[] = [];
+  const { client } = await connectTools(t, url => {
+    if (url.pathname === '/user/diary/24.10.2026/get') return Response.json({ code: 0,
+      data: { ...detailedDiary, notes: [{ id: 'note-one', text: 'Existing' }] } });
+    changes.push(url.pathname); return Response.json({ code: 0 });
+  });
+  assert.ok(!(await client.callTool({ name: 'add_diary_note', arguments: { date: '24.10.2026', meal: '1', text: 'Test', dry_run: true } })).isError);
+  assert.ok(!(await client.callTool({ name: 'delete_diary_note', arguments: { date: '24.10.2026', note_id: 'note-one', dry_run: true } })).isError);
+  assert.equal((await client.callTool({ name: 'delete_diary_note', arguments: { date: '24.10.2026', note_id: 'missing' } })).isError, true);
+  assert.deepEqual(changes, []);
+  assert.ok(!(await client.callTool({ name: 'delete_diary_note', arguments: { date: '24.10.2026', note_id: 'note-one' } })).isError);
+  assert.deepEqual(changes, ['/user/diary/note/delete/note-one']);
+});
