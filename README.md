@@ -84,6 +84,9 @@ Server komunikuje standardním protokolem MCP přes HTTPS s OAuth 2.1 a je otest
 | `list_templates` / `get_template` | Vypíše vlastní šablony jídelníčku a jejich obsah. |
 | `create_template_from_diary` | Uloží všechny potraviny dne, volitelně aktivity/poznámky; podporuje `dry_run`. |
 | `apply_template` / `delete_template` | Přidá šablonu do dne nebo smaže uloženou šablonu; podporuje `dry_run`. |
+| `get_measurement_types` / `list_measurement_trackers` | Vypíše typy a vlastní měření s jednotkami; hmotnost se spravuje zvlášť. |
+| `create_measurement_tracker` / `record_measurement` | Vytvoří měření bez počáteční hodnoty a zapíše hodnotu k datu; podporuje `dry_run`. |
+| `delete_measurement_tracker` | Smaže vlastní měření včetně celé historie; podporuje `dry_run`. |
 
 </details>
 

@@ -84,6 +84,9 @@ The server communicates via standard MCP over HTTPS with OAuth 2.1 and is tested
 | `list_templates` / `get_template` | List owned diary templates and read their contents. |
 | `create_template_from_diary` | Save all foods from one day, optionally activities/notes; supports `dry_run`. |
 | `apply_template` / `delete_template` | Add saved quantities to one date or delete the saved template; supports `dry_run`. |
+| `get_measurement_types` / `list_measurement_trackers` | Discover body/custom trackers and their units; weight remains separate. |
+| `create_measurement_tracker` / `record_measurement` | Create a tracker without an initial reading, then record a dated value; supports `dry_run`. |
+| `delete_measurement_tracker` | Delete a non-weight tracker and all its history; supports `dry_run`. |
 
 </details>
 

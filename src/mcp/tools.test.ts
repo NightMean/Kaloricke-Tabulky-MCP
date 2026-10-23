@@ -552,3 +552,34 @@ test('template application checks ownership and targets only the authenticated a
   assert.equal(writes[0].userGuidFromShare, null);
   assert.equal(writes[0].coeficientMultiplier, 1);
 });
+
+test('measurement writes require a non-weight tracker and retain zero values', async t => {
+  const writes: any[] = [];
+  const { client } = await connectTools(t, (url, init) => {
+    if (url.pathname === '/statistic/optional/24.10.2026/24.10.2026/get') return Response.json({ code: 0,
+      data: [{ guid: 'tracker-one', type: 'Example', unit: 'points' }] });
+    assert.equal(url.pathname, '/user/track/value/add');
+    writes.push(JSON.parse(String(init?.body))); return Response.json({ code: 0 });
+  });
+  const args = { tracker_id: 'tracker-one', date: '24.10.2026', value: 0 };
+  assert.ok(!(await client.callTool({ name: 'record_measurement', arguments: { ...args, dry_run: true } })).isError);
+  assert.equal((await client.callTool({ name: 'record_measurement', arguments: { ...args, tracker_id: 'weight' } })).isError, true);
+  assert.equal(writes.length, 0);
+  assert.ok(!(await client.callTool({ name: 'record_measurement', arguments: args })).isError);
+  assert.deepEqual(writes[0], { trackGuid: 'tracker-one', value: 0, valueHint: null, unit: null, date: args.date });
+});
+
+test('custom tracker creation requires explicit title and unit and does not record an initial value', async t => {
+  const writes: any[] = [];
+  const { client } = await connectTools(t, (url, init) => {
+    if (url.pathname === '/user/track/form') return Response.json({ code: 0,
+      data: { typeGuid: null, typeOptions: [{ guid: 'waist', title: 'Waist' }], value: 12 } });
+    assert.equal(url.pathname, '/user/track/add');
+    writes.push(JSON.parse(String(init?.body))); return Response.json({ code: 0, data: 'tracker-one' });
+  });
+  assert.equal((await client.callTool({ name: 'create_measurement_tracker', arguments: { title: 'Custom' } })).isError, true);
+  assert.equal(writes.length, 0);
+  assert.ok(!(await client.callTool({ name: 'create_measurement_tracker', arguments: { title: 'Custom', unit: 'points' } })).isError);
+  assert.equal(writes[0].typeGuid, '0');
+  assert.equal(writes[0].value, null);
+});
