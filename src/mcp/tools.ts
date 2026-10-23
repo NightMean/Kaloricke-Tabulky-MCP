@@ -8,6 +8,8 @@
 
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { registerDiaryTools } from './diary-tools.js';
+import { guard, json } from './shared.js';
 import {
   GRAM_UNIT,
   KtClient,
@@ -37,38 +39,8 @@ const dateSchema = z.string().superRefine((date, context) => {
   }
 }).optional().describe(dateDescription);
 
-/** Tool results are text; JSON keeps them unambiguous for the model. */
-function json(value: unknown) {
-  return { content: [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }] };
-}
-
-function failure(error: unknown) {
-  return {
-    content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
-    isError: true,
-  };
-}
-
-/**
- * Wraps a tool handler so every call lands in the container log with its
- * arguments and outcome, and every throw becomes an in-band tool error.
- * Without this, a failing tool is invisible from the server side.
- */
-function guard<Args>(name: string, fn: (args: Args) => Promise<ReturnType<typeof json>>) {
-  return async (args: Args) => {
-    try {
-      const result = await fn(args);
-      console.log(`[tool] ${name} ${JSON.stringify(args)} -> ok`);
-      return result;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`[tool] ${name} ${JSON.stringify(args)} -> ${message}`);
-      return failure(error);
-    }
-  };
-}
-
 export function registerTools(server: McpServer, kt: KtClient): void {
+  registerDiaryTools(server, kt);
   server.registerTool(
     'search_food',
     {

@@ -54,6 +54,12 @@ The server communicates via standard MCP over HTTPS with OAuth 2.1 and is tested
 | `get_food_nutrition` | Calories and macros for a quantity, scaled by the site itself. Read-only. |
 | `log_food` | Write an eating record into the diary (supports `dry_run: true` to preview macros without logging). |
 | `get_day_summary` | Read back a day's totals and structured overview (current/target/remaining calories, macros, water). |
+| `get_diary` | Read food/recipe entries, IDs, meal slots, activities and notes. |
+| `get_diary_food_units` | Read current quantity and offered units before editing. |
+| `edit_diary_food` | Replace a food entry quantity; supports `dry_run`. |
+| `delete_diary_entry` | Delete one logged food/recipe or activity; supports `dry_run`. |
+| `move_diary_food` | Move a food/recipe to another slot or date; supports `dry_run`. |
+| `copy_diary_entries` | Copy selected entry IDs to another date; supports `dry_run`. |
 | `record_weight` | Log user body weight (kg) for a given date (supports `dry_run: true`). |
 | `get_weight_history` | Retrieve recent body weight entries from monthly tracking statistics. |
 | `create_meal` | Save a recipe built from existing foods. |
@@ -69,6 +75,16 @@ goals from the separate diary summary. Water uses the diary's more precise
 display values, falling back to statistics when unavailable. Litres are converted to
 millilitres; energy retains the site's unit. Missing values remain `null`.
 If either API request fails, the tool reports an error.
+
+Diary correction tools require a date and an entry ID from `get_diary`. They
+check membership before changing anything. `edit_diary_food.amount` is an
+absolute quantity, not a multiplier of the previous entry. Recipe IDs from
+`list_my_meals` and food IDs from search are not diary entry IDs.
+`move_diary_food` accepts exactly one destination: `meal` or `target_date`.
+Copying adds entries without replacing the destination. If a copy request
+loses its acknowledgement, read the destination before retrying to avoid
+duplicates. Network failures are not automatically retried.
+Tool logs contain operation names and outcomes, without diary arguments.
 
 For `log_food`, `log_meal`, and `record_weight`, set `dry_run: true` for a
 preview without writing. Omitting `dry_run` or setting it to `false` writes

@@ -54,6 +54,12 @@ Server komunikuje standardním protokolem MCP přes HTTPS s OAuth 2.1 a je otest
 | `get_food_nutrition` | Kalorie a makra pro dané množství, přepočítané samotným webem. Pouze čtení. |
 | `log_food` | Zapíše záznam o jídle do jídelníčku (podporuje `dry_run: true` pro bezpečný náhled před zápisem). |
 | `get_day_summary` | Přečte denní souhrn jídelníčku a strukturovaný přehled cílů (energie, makra, voda). |
+| `get_diary` | Načte položky jídelníčku s jejich ID, chody, aktivity a poznámky. |
+| `get_diary_food_units` | Načte aktuální množství a povolené jednotky položky. |
+| `edit_diary_food` | Změní množství potraviny; podporuje `dry_run`. |
+| `delete_diary_entry` | Smaže zapsanou potravinu/recept nebo aktivitu; podporuje `dry_run`. |
+| `move_diary_food` | Přesune položku do jiného chodu nebo dne; podporuje `dry_run`. |
+| `copy_diary_entries` | Zkopíruje vybraná ID do jiného dne; podporuje `dry_run`. |
 | `record_weight` | Zapíše tělesnou hmotnost (kg) uživatele k danému dni (podporuje `dry_run: true`). |
 | `get_weight_history` | Načte historii záznamů tělesné hmotnosti z měsíčních statistik. |
 | `create_meal` | Uloží recept složený z existujících potravin. |
@@ -62,6 +68,15 @@ Server komunikuje standardním protokolem MCP přes HTTPS s OAuth 2.1 a je otest
 | `delete_meal` | Smaže uložený recept. |
 
 </details>
+
+Úpravy jídelníčku vyžadují datum a ID položky z `get_diary`; před zápisem
+ověří její příslušnost ke dni. Nejde o ID potraviny ani uloženého receptu.
+`edit_diary_food.amount` je nové absolutní množství v nabídnuté jednotce.
+`move_diary_food` přijímá právě jeden cíl: `meal` nebo `target_date`.
+Kopírování přidává položky a nenahrazuje cílový den. Při ztrátě odpovědi
+nejprve zkontrolujte cílový jídelníček, aby opakování nevytvořilo duplicity.
+Síťové chyby se automaticky neopakují. Logy nástrojů obsahují název operace
+a výsledek, nikoli argumenty jídelníčku.
 
 `get_day_summary` zachovává původní odpověď statistik v `summary` i aliasu
 `raw`. Přehled `overview` spojuje energii ze statistik s vodou a cíli makroživin

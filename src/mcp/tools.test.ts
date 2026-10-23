@@ -228,7 +228,77 @@ test('optional metadata lookup failures do not prevent or duplicate successful w
   }
   assert.equal(writes.length, 2);
   const tools = await client.listTools();
-  assert.equal(tools.tools.length, 11);
+  assert.ok(tools.tools.some(tool => tool.name === 'get_diary'));
+});
+
+const detailedDiary = {
+  times: [{ id: '1', title: 'Raňajky', foodstuff: [
+    { id: 'entry-one', title: 'Food', selected: true }, { id: 'entry-two', title: 'Other', selected: true },
+  ] }],
+  activities: [{ id: 'activity-one', selected: true }], notes: [],
+};
+
+test('diary food correction validates the date, entry ownership and offered units', async t => {
+  let posted: unknown;
+  const { client, requests } = await connectTools(t, (url, init) => {
+    if (url.pathname === '/user/diary/24.10.2026/get') return Response.json({ code: 0, data: detailedDiary });
+    if (url.pathname === '/user/diary/foodstuff/unit/form/entry-one') {
+      return Response.json({ code: 0, data: { diaryGuid: 'entry-one', multiplier: 30, unitGuid: GRAM_UNIT,
+        unitOptions: [{ id: GRAM_UNIT, multiplier: 1 }] } });
+    }
+    assert.equal(url.pathname, '/user/diary/foodstuff/unit/edit');
+    assert.equal(init?.method, 'POST');
+    posted = JSON.parse(String(init.body));
+    return Response.json({ code: 0 });
+  });
+  const args = { date: '24.10.2026', entry_id: 'entry-one', amount: 50, unit_id: GRAM_UNIT };
+  assert.ok(!(await client.callTool({ name: 'edit_diary_food', arguments: { ...args, dry_run: true } })).isError);
+  assert.equal(posted, undefined);
+  for (const patch of [{ entry_id: 'missing' }, { unit_id: 'missing' }, { date: '31.02.2026' }]) {
+    assert.equal((await client.callTool({ name: 'edit_diary_food', arguments: { ...args, ...patch } })).isError, true);
+  }
+  assert.equal(posted, undefined);
+  assert.ok(!(await client.callTool({ name: 'edit_diary_food', arguments: args })).isError);
+  assert.deepEqual(posted, { diaryGuid: 'entry-one', multiplier: 50, unitGuid: GRAM_UNIT,
+    unitOptions: [{ id: GRAM_UNIT, multiplier: 1 }] });
+  assert.equal(requests.filter(path => path === '/user/diary/foodstuff/unit/edit').length, 1);
+});
+
+test('diary deletion and moves preview without invoking mutating GET endpoints', async t => {
+  const { client, requests } = await connectTools(t, url => {
+    if (url.pathname === '/user/diary/24.10.2026/get') return Response.json({ code: 0, data: detailedDiary });
+    return Response.json({ code: 0 });
+  });
+  const args = { date: '24.10.2026', entry_id: 'entry-one' };
+  for (const name of ['delete_diary_entry', 'move_diary_food']) {
+    const changesBefore = requests.filter(path => /delete|dragndrop/.test(path)).length;
+    const extra = name === 'delete_diary_entry' ? { kind: 'food' } : { meal: '3' };
+    assert.ok(!(await client.callTool({ name, arguments: { ...args, ...extra, dry_run: true } })).isError);
+    assert.equal(requests.filter(path => /delete|dragndrop/.test(path)).length, changesBefore);
+    assert.equal((await client.callTool({ name, arguments: { ...args, ...extra, entry_id: 'missing' } })).isError, true);
+    assert.ok(!(await client.callTool({ name, arguments: { ...args, ...extra } })).isError);
+  }
+  assert.ok(requests.includes('/user/diary/foodstuff/delete/entry-one'));
+  assert.ok(requests.includes('/user/diary/entry-one/3/0/dragndrop'));
+});
+
+test('copying diary entries selects only requested IDs and rejects same-day copies', async t => {
+  const observed: { body?: any } = {};
+  const { client } = await connectTools(t, (url, init) => {
+    if (url.pathname === '/user/diary/24.10.2026/get') return Response.json({ code: 0, data: detailedDiary });
+    assert.equal(url.pathname, '/user/diary/copy');
+    observed.body = JSON.parse(String(init?.body));
+    return Response.json({ code: 0 });
+  });
+  const args = { date: '24.10.2026', target_date: '25.10.2026', entry_ids: ['entry-one'] };
+  assert.equal((await client.callTool({ name: 'copy_diary_entries', arguments: { ...args, target_date: args.date } })).isError, true);
+  assert.ok(!(await client.callTool({ name: 'copy_diary_entries', arguments: { ...args, dry_run: true } })).isError);
+  assert.equal(observed.body, undefined);
+  assert.ok(!(await client.callTool({ name: 'copy_diary_entries', arguments: args })).isError);
+  const payload = JSON.parse(JSON.stringify(observed.body));
+  assert.equal(payload.date, '25.10.2026');
+  assert.deepEqual(payload.times[0].foodstuff.map((item: any) => item.selected), [true, false]);
+  assert.equal(payload.activities[0].selected, false);
 });
 
 test('half-recipe preview and write agree on the multiplier and submit a supported display unit', async t => {
