@@ -151,9 +151,17 @@ test('logMeal validates portion bounds and scales ingredients proportionally', a
   (client as any).authed = async (path: string, init?: { method?: string; body?: unknown }) => {
     if (path.includes('/form/')) {
       return {
+        selectedUnitGuid: '0000000000000001',
+        selectedUnitMultiplier: 100,
+        units: [
+          { id: '0000000000000003', title: '%', multiplier: -1 },
+          { id: '0000000000000001', title: '1 g', multiplier: 1 },
+        ],
         foodstuff: [
-          { foodId: 'f1', count: '100', countOriginal: '100' },
+          { foodId: 'f1', count: '100', countOriginal: '100', selectedUnitGuid: 'changed', selectedUnitGuidOriginal: 'original' },
           { foodId: 'f2', count: '2,5', countOriginal: '2,5' },
+          { foodId: 'f3', count: '10', countOriginal: '10', selected: false },
+          { foodId: 'f4', countOriginal: '0,001' },
         ],
       };
     }
@@ -167,9 +175,14 @@ test('logMeal validates portion bounds and scales ingredients proportionally', a
   await client.logMeal({ mealId: 'recipe1', meal: '1', portions: 0.5 });
   assert.ok(postedPayload);
   const payloadRecord = postedPayload as Record<string, unknown>;
-  assert.equal(payloadRecord['count'], 0.5);
-  const items = payloadRecord['foodstuff'] as Array<{ foodId: string; count: number }>;
+  assert.equal(payloadRecord['count'], undefined);
+  assert.equal(payloadRecord['selectedUnitGuid'], '0000000000000003');
+  assert.equal(payloadRecord['selectedUnitMultiplier'], 50);
+  const items = payloadRecord['foodstuff'] as Array<{ foodId: string; count: number; selectedUnitGuid?: string }>;
   assert.equal(items[0]?.count, 50);
+  assert.equal(items[0]?.selectedUnitGuid, 'original');
   assert.equal(items[1]?.count, 1.25);
+  assert.equal(items[2]?.count, 0);
+  assert.equal(items[3]?.count, 0.0005);
 });
 

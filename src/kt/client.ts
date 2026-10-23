@@ -634,25 +634,43 @@ export class KtClient {
       throw new KtError(`Invalid portions: ${portions}. Expected positive number.`);
     }
 
-    const form = (await this.authed(
+    const form = await this.authed(
       `/user/meal/add/form/${encodeURIComponent(args.mealId)}?format=json`,
-    )) as Record<string, unknown>;
+    );
+    if (!isRecord(form) || !Array.isArray(form['foodstuff']) || form['foodstuff'].length === 0) {
+      throw new KtError('meal add form: expected a recipe with ingredients');
+    }
+    const percentUnit = Array.isArray(form['units'])
+      ? form['units'].find((unit: unknown) => isRecord(unit) && unit['multiplier'] === -1 && typeof unit['id'] === 'string')
+      : undefined;
+    if (!isRecord(percentUnit)) throw new KtError('meal add form: no percentage unit available for recipe scaling');
+    const percentage = portions * 100;
+    if (!Number.isFinite(percentage)) throw new KtError('Invalid portions: percentage exceeds the supported numeric range');
 
     const payload: Record<string, unknown> = { ...form };
     payload['diaryTimeGuid'] = args.meal;
     payload['date'] = date;
-    payload['selectedUnitGuid'] = PORTION_UNIT;
-    payload['count'] = portions;
+    // The site labels the diary entry from selectedUnitMultiplier, not count.
+    // Use a unit actually offered by this form; not every recipe has portions.
+    payload['selectedUnitGuid'] = percentUnit['id'];
+    payload['selectedUnitMultiplier'] = percentage;
+    delete payload['count'];
 
-    if (Array.isArray(payload['foodstuff'])) {
-      payload['foodstuff'] = payload['foodstuff'].map((rawItem: unknown) => {
-        if (!rawItem || typeof rawItem !== 'object') return rawItem;
-        const item = { ...(rawItem as Record<string, unknown>) };
-        const base = parseCzechNumber(item['countOriginal']) ?? parseCzechNumber(item['count']) ?? 1;
-        item['count'] = Math.round(base * portions * 1000) / 1000;
+    payload['foodstuff'] = form['foodstuff'].map((rawItem: unknown, index: number) => {
+      if (!isRecord(rawItem)) throw new KtError(`meal add form: ingredient ${index + 1} must be an object`);
+      const item = { ...rawItem };
+      if (typeof item['selectedUnitGuidOriginal'] === 'string') item['selectedUnitGuid'] = item['selectedUnitGuidOriginal'];
+      if (item['selected'] === false) {
+        item['count'] = 0;
         return item;
-      });
-    }
+      }
+      const base = parseCzechNumber(item['countOriginal'] ?? item['count']);
+      if (base === null || base < 0 || !Number.isFinite(base * portions)) {
+        throw new KtError(`meal add form: ingredient ${index + 1} must have a finite, nonnegative original count`);
+      }
+      item['count'] = base * portions;
+      return item;
+    });
 
     await this.authed('/user/meal/add?format=json&=', { method: 'POST', body: payload });
   }

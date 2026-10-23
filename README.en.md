@@ -88,6 +88,12 @@ a `unit_id` from `get_food_portions` and the count multiplies it, so 2 of
 for 100 of the `100 ml` unit and quietly created a recipe containing ten litres
 of milk.
 
+`log_meal` multiplies the whole saved recipe by `portions` (default `1`).
+For example, `portions: 0.5` scales every selected ingredient by half and
+appears as `50 %` in the website diary. The client uses the form's supported
+percentage unit and `selectedUnitMultiplier`; changing `count` alone does not
+set the displayed quantity correctly.
+
 ## How it works
 
 [kaloricketabulky.cz](https://www.kaloricketabulky.cz) is a Spring MVC app where every route also answers JSON if you append `?format=json`, returning a `{code, data, message}` envelope. There is no official or documented API — these endpoints were recovered from the site's own frontend JavaScript. See `src/kt/client.ts` for the full map.

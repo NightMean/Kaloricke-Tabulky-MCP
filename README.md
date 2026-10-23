@@ -87,6 +87,12 @@ Když předáte `unit_id` z `get_food_portions`, počet ho násobí: 2 × `porce
 (250 ml)` je 500 ml. Splést se je snadné: jeden raný test zadal 100 jednotek
 `100 ml` a potichu vytvořil recept s deseti litry mléka.
 
+`log_meal` násobí celý uložený recept hodnotou `portions` (výchozí `1`).
+Například `portions: 0.5` použije polovinu každé vybrané suroviny a na webu
+se zobrazí jako `50 %`. Klient používá procentní jednotku dostupnou ve formuláři
+a pole `selectedUnitMultiplier`; samotná změna `count` nezajistí správné
+zobrazení množství.
+
 ## Jak to funguje
 
 [kaloricketabulky.cz](https://www.kaloricketabulky.cz) je Spring MVC aplikace, kde každá routa odpoví i v JSON, když přidáte `?format=json` — vrací obálku `{code, data, message}`. Žádné oficiální ani dokumentované API neexistuje; endpointy byly zrekonstruovány z frontendového JavaScriptu webu. Úplná mapa je v `src/kt/client.ts`.

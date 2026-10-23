@@ -3,7 +3,7 @@ import { test, type TestContext } from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { GRAM_UNIT, KtClient, PORTION_UNIT } from '../kt/client.js';
+import { GRAM_UNIT, KtClient } from '../kt/client.js';
 import { registerTools } from './tools.js';
 
 const statistics = {
@@ -19,6 +19,12 @@ const diary = {
     { code: 'fat', actual: '65,2', actualValue: 65.2, goal: '70', unit: 'g' },
     { code: 'fiber', actual: '28,5', actualValue: 28.5, goal: '30', unit: 'g' },
   ]],
+};
+
+const recipeForm = {
+  guid: 'test-recipe', selectedUnitGuid: GRAM_UNIT, selectedUnitMultiplier: 100, count: null,
+  units: [{ id: '0000000000000003', title: '%', multiplier: -1 }, { id: GRAM_UNIT, title: '1 g', multiplier: 1 }],
+  foodstuff: [{ selected: true, count: 100, countOriginal: 100, selectedUnitGuid: GRAM_UNIT, selectedUnitGuidOriginal: GRAM_UNIT }],
 };
 
 async function connectTools(t: TestContext, reply: (url: URL, init?: RequestInit) => Response) {
@@ -145,7 +151,7 @@ test('valid previews never write and both explicit and default commits write exa
       return Response.json({ code: 0, data: { guid: 'test-food', unitGuid: GRAM_UNIT } });
     }
     if (url.pathname === '/user/meal/add/form/test-recipe') {
-      return Response.json({ code: 0, data: { guid: 'test-recipe' } });
+      return Response.json({ code: 0, data: recipeForm });
     }
     assert.equal(init?.method, 'POST');
     assert.equal(typeof init.body, 'string');
@@ -156,8 +162,9 @@ test('valid previews never write and both explicit and default commits write exa
       assert.equal(body.unitGuid, GRAM_UNIT);
       assert.equal(body.diaryTimeGuid, '1');
     } else if (url.pathname === '/user/meal/add') {
-      assert.equal(body.count, 1);
-      assert.equal(body.selectedUnitGuid, PORTION_UNIT);
+      assert.equal(body.count, undefined);
+      assert.equal(body.selectedUnitGuid, '0000000000000003');
+      assert.equal(body.selectedUnitMultiplier, 100);
       assert.equal(body.diaryTimeGuid, '1');
     } else {
       assert.equal(url.pathname, '/user/weight/add');
@@ -201,6 +208,7 @@ test('optional metadata lookup failures do not prevent or duplicate successful w
     if (url.pathname.startsWith('/foodstuff/detail/test-food/') || url.pathname === '/user/settings/meal/list') {
       throw new Error('Metadata unavailable');
     }
+    if (url.pathname === '/user/meal/add/form/test-recipe') return Response.json({ code: 0, data: recipeForm });
     if (url.pathname.includes('/form/')) return Response.json({ code: 0, data: { guid: 'test-item' } });
     assert.ok(['/user/foodstuff/add', '/user/meal/add'].includes(url.pathname));
     assert.equal(init?.method, 'POST');
@@ -220,4 +228,60 @@ test('optional metadata lookup failures do not prevent or duplicate successful w
   assert.equal(writes.length, 2);
   const tools = await client.listTools();
   assert.equal(tools.tools.length, 11);
+});
+
+test('half-recipe preview and write agree on the multiplier and submit a supported display unit', async t => {
+  let writes = 0;
+  const { client } = await connectTools(t, (url, init) => {
+    if (url.pathname === '/user/settings/meal/list') {
+      return Response.json({ code: 0, data: [{ guid: 'test-recipe', title: 'Recipe', energy: '250', energyUnit: 'kcal' }] });
+    }
+    if (url.pathname === '/user/meal/add/form/test-recipe') return Response.json({ code: 0, data: recipeForm });
+    assert.equal(url.pathname, '/user/meal/add');
+    const body = JSON.parse(String(init?.body));
+    assert.equal(body.selectedUnitGuid, '0000000000000003');
+    assert.equal(body.selectedUnitMultiplier, 50);
+    assert.equal(body.foodstuff[0].count, 50);
+    assert.equal(body.count, undefined);
+    writes++;
+    return Response.json({ code: 0, data: {} });
+  });
+  for (const dry_run of [true, false]) {
+    const result = await client.callTool({ name: 'log_meal', arguments: {
+      meal_id: 'test-recipe', meal: '6', date: '24.10.2026', portions: 0.5, dry_run,
+    } });
+    assert.ok(!result.isError);
+    assert.ok(Array.isArray(result.content));
+    const text = result.content[0];
+    assert.ok(text && text.type === 'text');
+    const payload = JSON.parse(text.text);
+    assert.equal(payload.portions, 0.5);
+    assert.equal(payload.energy, '125 kcal');
+    assert.equal(writes, dry_run ? 0 : 1);
+  }
+});
+
+test('unsupported recipe forms fail clearly before any write', async t => {
+  let currentForm: unknown;
+  const { client, requests } = await connectTools(t, url => {
+    if (url.pathname === '/user/settings/meal/list') return Response.json({ code: 0, data: [] });
+    assert.equal(url.pathname, '/user/meal/add/form/test-recipe');
+    return Response.json({ code: 0, data: currentForm });
+  });
+  const invalidForms = [
+    { ...recipeForm, units: [] },
+    { ...recipeForm, foodstuff: [] },
+    { ...recipeForm, foodstuff: [null] },
+    { ...recipeForm, foodstuff: [{ countOriginal: 'invalid', count: 100 }] },
+    { ...recipeForm, foodstuff: [{ countOriginal: -1 }] },
+  ];
+  for (const form of invalidForms) {
+    currentForm = form;
+    const result = await client.callTool({ name: 'log_meal', arguments: {
+      meal_id: 'test-recipe', meal: '6', date: '24.10.2026', portions: 0.5,
+    } });
+    assert.equal(result.isError, true);
+    assert.match(JSON.stringify(result.content), /meal add form:/);
+  }
+  assert.ok(!requests.includes('/user/meal/add'));
 });
