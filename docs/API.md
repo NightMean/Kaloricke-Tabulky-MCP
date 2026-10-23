@@ -36,7 +36,7 @@ Implementation: `src/kt/diary.ts`, `src/mcp/diary-tools.ts`.
 | `/user/diary/{foodstuff\|activity}/delete/{id}` | GET mutation: delete a logged entry, not its saved recipe. |
 | `/user/diary/{id}/{mealId}/0/dragndrop` | GET mutation: move a food/recipe to another slot. |
 | `/user/diary/{id}/0/{date}/dragndrop` | GET mutation: move a food/recipe to another day. |
-| `/user/diary/copy` | POST diary with target date and explicit `selected` flags on every food/activity. |
+| `/user/diary/copy` | POST diary with Czech-local midnight ISO timestamp and explicit `selected` flags on every food/activity. |
 | `/user/diary/note/add` | POST `{date, time: mealId, note: text}`. |
 | `/user/diary/note/delete/{id}` | GET mutation: delete an existing note ID. |
 
@@ -44,6 +44,9 @@ Corrections verify entry membership in the source date before mutation. Food IDs
 from search, saved recipe IDs, and diary entry IDs are separate identifiers.
 Copies add entries without replacing the destination and may duplicate them if
 retried after an uncertain result. Inspect the destination first.
+Unlike other diary writes, the copy DTO expects a serialized Date, not the
+`dd.MM.yyyy` input string. The client converts it using the Czech timezone,
+including daylight saving time. Notes are excluded from entry copies.
 
 ## Recipes
 

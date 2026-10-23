@@ -421,7 +421,10 @@ test('diary deletion and moves preview without invoking mutating GET endpoints',
 test('copying diary entries selects only requested IDs and rejects same-day copies', async t => {
   const observed: { body?: any } = {};
   const { client } = await connectTools(t, (url, init) => {
-    if (url.pathname === '/user/diary/24.10.2026/get') return Response.json({ code: 0, data: detailedDiary });
+    if (url.pathname === '/user/diary/24.10.2026/get') return Response.json({ code: 0, data: {
+      ...detailedDiary, notes: [{ id: 'global-note', text: 'Do not copy' }],
+      times: detailedDiary.times.map(time => ({ ...time, notes: [{ id: 'meal-note', text: 'Do not copy' }], templateNotes: [{ text: 'Do not copy' }] })),
+    } });
     assert.equal(url.pathname, '/user/diary/copy');
     observed.body = JSON.parse(String(init?.body));
     return Response.json({ code: 0 });
@@ -432,9 +435,12 @@ test('copying diary entries selects only requested IDs and rejects same-day copi
   assert.equal(observed.body, undefined);
   assert.ok(!(await client.callTool({ name: 'copy_diary_entries', arguments: args })).isError);
   const payload = JSON.parse(JSON.stringify(observed.body));
-  assert.equal(payload.date, '25.10.2026');
+  assert.equal(payload.date, '2026-10-24T22:00:00.000Z');
   assert.deepEqual(payload.times[0].foodstuff.map((item: any) => item.selected), [true, false]);
   assert.equal(payload.activities[0].selected, false);
+  assert.deepEqual(payload.notes, []);
+  assert.deepEqual(payload.times[0].notes, []);
+  assert.deepEqual(payload.times[0].templateNotes, []);
 });
 
 test('half-recipe preview and write agree on the multiplier and submit a supported display unit', async t => {

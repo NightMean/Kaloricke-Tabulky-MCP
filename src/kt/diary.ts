@@ -9,6 +9,20 @@ export interface Diary {
   activities: ApiRecord[];
 }
 
+/** Copy uses a Date field: mirror the browser's Czech-local midnight ISO timestamp. */
+export function diaryCopyTimestamp(date: string): string {
+  assertCzechDate(date);
+  const [day, month, year] = date.split('.').map(Number) as [number, number, number];
+  const nominal = new Date(0);
+  nominal.setUTCFullYear(year, month - 1, day);
+  const zone = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Prague', timeZoneName: 'longOffset' })
+    .formatToParts(nominal).find(part => part.type === 'timeZoneName')?.value;
+  const offset = zone?.match(/^GMT(?:([+-])(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (!offset) throw new KtError('Cannot determine the Czech diary timezone offset');
+  const seconds = (Number(offset[2] ?? 0) * 3600 + Number(offset[3] ?? 0) * 60 + Number(offset[4] ?? 0)) * (offset[1] === '-' ? -1 : 1);
+  return new Date(nominal.getTime() - seconds * 1000).toISOString();
+}
+
 /** Diary IDs are distinct from database food IDs and saved recipe IDs. */
 export class DiaryApi {
   constructor(private readonly request: ApiRequest) {}
@@ -75,8 +89,8 @@ export class DiaryApi {
     const all = [...diary.times.flatMap(time => records(time['foodstuff'], 'diary foods')), ...diary.activities];
     for (const id of args.ids) if (!all.some(item => item['id'] === id)) throw new KtError(`No diary entry ${id} on ${args.date}`);
     const select = (entry: ApiRecord) => ({ ...entry, selected: args.ids.includes(String(entry['id'])) });
-    const payload = { ...diary.raw, date: args.targetDate,
-      times: diary.times.map(time => ({ ...time, foodstuff: records(time['foodstuff'], 'diary foods').map(select) })),
+    const payload = { ...diary.raw, date: diaryCopyTimestamp(args.targetDate), notes: [],
+      times: diary.times.map(time => ({ ...time, notes: [], templateNotes: [], foodstuff: records(time['foodstuff'], 'diary foods').map(select) })),
       activities: diary.activities.map(select) };
     if (!args.dryRun) await this.request('/user/diary/copy?format=json', { method: 'POST', body: payload });
     return { preview: args.dryRun, copied: !args.dryRun, source_date: args.date, target_date: args.targetDate, entry_ids: args.ids,
