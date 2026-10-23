@@ -1,6 +1,8 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
+  extractDaySummaryOverview,
+  assertCzechDate,
   formatCzechDate,
   getMealName,
   normalizeKtBaseUrl,
@@ -38,6 +40,15 @@ test('formats dates the way the site expects', () => {
   assert.equal(formatCzechDate(new Date(2026, 11, 25)), '25.12.2026');
 });
 
+test('validates real calendar dates, including leap years', () => {
+  for (const date of ['23.10.2026', '29.02.2024', '29.02.2000', '01.01.0099']) {
+    assert.equal(assertCzechDate(date), date);
+  }
+  for (const date of ['not-a-date', '2026-10-23', '31.02.2026', '29.02.2026', '29.02.1900', '00.10.2026', '01.13.2026', '01.01.0000']) {
+    assert.throws(() => assertCzechDate(date), /Invalid date/);
+  }
+});
+
 test('normalizes domain names and base URLs to standard https format', () => {
   assert.equal(normalizeKtBaseUrl(), 'https://www.kaloricketabulky.cz');
   assert.equal(normalizeKtBaseUrl(''), 'https://www.kaloricketabulky.cz');
@@ -64,4 +75,66 @@ test('validates body weight bounds and rejects invalid inputs', async () => {
   await assert.rejects(async () => client.recordWeight(-5), /Invalid weight/);
   await assert.rejects(async () => client.recordWeight(600), /Invalid weight/);
   await assert.rejects(async () => client.recordWeight(Number.NaN), /Invalid weight/);
+});
+
+test('extracts energy and converts litres from the statistics summary payload', () => {
+  const mockPayload = {
+    code: 0,
+    data: {
+      todayEnergy: '1 850,5',
+      todayEnergyTarget: '2 200',
+      todayDrink: '2,1',
+      todayDrinkTarget: '2,5',
+      drinkUnit: 'l',
+      energyUnit: 'kcal',
+    },
+  };
+
+  const overview = extractDaySummaryOverview(mockPayload);
+  assert.ok(overview);
+  assert.deepEqual(overview.energy, {
+    current: 1850.5,
+    target: 2200,
+    remaining: 349.5,
+    unit: 'kcal',
+  });
+  assert.deepEqual(overview.macros, {
+    protein: { current: null, target: null, unit: null },
+    carbs: { current: null, target: null, unit: null },
+    fat: { current: null, target: null, unit: null },
+    fiber: { current: null, target: null, unit: null },
+  });
+  assert.deepEqual(overview.water, {
+    current: 2100,
+    target: 2500,
+    unit: 'ml',
+  });
+});
+
+test('summary preserves zero values, overspent budgets, units, and nested macro goals', () => {
+  const overview = extractDaySummaryOverview({
+    todayEnergy: '5 000', todayEnergyTarget: '4 000', energyUnit: 'kJ',
+    todayDrink: 0, todayDrinkTarget: 2000, drinkUnit: 'ml',
+  }, { data: { itemsDynamic: [[
+    { code: 'protein', actualValue: 0, actual: '5', goal: '100', unit: 'g' },
+    { code: 'carbohydrate', actualValue: null, actual: '20,5', goal: null, unit: 'g' },
+  ], [null, { code: 'fat', actualValue: 'invalid', actual: '10', goal: 'bad', unit: 'g' }]] } });
+  assert.ok(overview);
+  assert.deepEqual(overview.energy, { current: 5000, target: 4000, remaining: -1000, unit: 'kJ' });
+  assert.deepEqual(overview.water, { current: 0, target: 2000, unit: 'ml' });
+  assert.deepEqual(overview.macros.protein, { current: 0, target: 100, unit: 'g' });
+  assert.deepEqual(overview.macros.carbs, { current: 20.5, target: null, unit: 'g' });
+  assert.deepEqual(overview.macros.fat, { current: 10, target: null, unit: 'g' });
+  assert.deepEqual(overview.macros.fiber, { current: null, target: null, unit: null });
+});
+
+test('summary distinguishes missing measurements from zero and does not invent units', () => {
+  for (const invalid of [null, undefined, [], 'invalid', { data: null }]) {
+    assert.equal(extractDaySummaryOverview(invalid), null);
+  }
+  const overview = extractDaySummaryOverview({ todayEnergy: 'invalid', todayDrink: '1' }, { itemsDynamic: null });
+  assert.ok(overview);
+  assert.equal(overview.energy, null);
+  assert.deepEqual(overview.water, { current: 1, target: null, unit: null });
+  assert.deepEqual(overview.macros.protein, { current: null, target: null, unit: null });
 });

@@ -8,7 +8,17 @@
 
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { GRAM_UNIT, KtClient, MEALS, type MealId, getMealName, todayCzech } from '../kt/client.js';
+import {
+  GRAM_UNIT,
+  KtClient,
+  MEALS,
+  type MealId,
+  KtError,
+  assertCzechDate,
+  extractDaySummaryOverview,
+  getMealName,
+  todayCzech,
+} from '../kt/client.js';
 
 const MEAL_IDS = Object.keys(MEALS) as [MealId, ...MealId[]];
 
@@ -18,6 +28,14 @@ const mealDescription = `Which meal slot to file the entry under: ${Object.entri
 
 const dateDescription =
   'Date in dd.MM.yyyy format (Czech/Slovak style). Omit for today. Use this to log something the user ate on a previous day.';
+
+const dateSchema = z.string().superRefine((date, context) => {
+  try {
+    assertCzechDate(date);
+  } catch (error) {
+    context.addIssue({ code: 'custom', message: error instanceof Error ? error.message : 'Invalid date' });
+  }
+}).optional().describe(dateDescription);
 
 /** Tool results are text; JSON keeps them unambiguous for the model. */
 function json(value: unknown) {
@@ -123,8 +141,9 @@ export function registerTools(server: McpServer, kt: KtClient): void {
     {
       title: 'Log food to the diary',
       description:
-        'Write an eating record into the user\'s kaloricketabulky.cz diary. This modifies their real diary, so confirm the food and portion first if there was any ambiguity in what they said. ' +
-        'Returns the nutrition that was logged.',
+        'Write an eating record into the user\'s kaloricketabulky.cz / kaloricketabulky.sk diary. This modifies their real diary. ' +
+        'Set dry_run: true to preview calculated calories/macros without writing to the diary. ' +
+        'Returns the nutrition that was logged (or previewed).',
       inputSchema: {
         food_id: z.string().min(1).describe('The food id returned by search_food.'),
         amount: z.number().positive().describe('How many units. With the grams unit this is a weight in grams.'),
@@ -133,20 +152,38 @@ export function registerTools(server: McpServer, kt: KtClient): void {
           .optional()
           .describe(`Unit id from get_food_portions. Omit to use grams (${GRAM_UNIT}).`),
         meal: z.enum(MEAL_IDS).describe(mealDescription),
-        date: z.string().optional().describe(dateDescription),
+        date: dateSchema,
+        dry_run: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('If true, previews calculated values without writing to the diary.'),
       },
       annotations: { destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
-    guard('log_food', async ({ food_id, amount, unit_id, meal, date }) => {
+    guard('log_food', async ({ food_id, amount, unit_id, meal, date, dry_run }) => {
+      const formattedDate = date ?? todayCzech();
       const unit = unit_id ?? GRAM_UNIT;
-      await kt.logFood({ foodId: food_id, amount, unitId: unit, meal, date });
-      // The write has landed; a failed read-back must not become a tool error,
-      // or the model retries and logs the food twice.
-      const nutrition = await kt.getNutrition(food_id, amount, unit).catch(() => null);
+      // A preview needs nutrition; a write can still succeed without this metadata.
+      const nutritionRead = kt.getNutrition(food_id, amount, unit);
+      const nutrition = await (dry_run ? nutritionRead : nutritionRead.catch(() => null));
+      if (dry_run) {
+        return json({
+          preview: true,
+          dry_run: true,
+          meal: getMealName(meal, kt.baseUrl),
+          date: formattedDate,
+          amount,
+          nutrition,
+          note: 'Preview only — nothing was written to the diary. Call with dry_run: false (or omit dry_run) to commit.',
+        });
+      }
+      await kt.logFood({ foodId: food_id, amount, unitId: unit, meal, date: formattedDate });
       return json({
         logged: true,
+        dry_run: false,
         meal: getMealName(meal, kt.baseUrl),
-        date: date ?? todayCzech(),
+        date: formattedDate,
         amount,
         nutrition,
       });
@@ -216,25 +253,47 @@ export function registerTools(server: McpServer, kt: KtClient): void {
     {
       title: 'Log a saved recipe to the diary',
       description:
-        "Log one of the user's saved recipes into their diary as a single entry. Find the recipe id with list_my_meals first. This writes to their real diary. " +
+        "Log one of the user's saved recipes into their diary as a single entry. Find the recipe id with list_my_meals first. " +
+        'Set dry_run: true to preview the recipe details without writing to the diary. ' +
         'The whole recipe is always logged — the site provides no way to log a fraction of one. If the user ate only part of a recipe, log the individual ingredients with log_food instead.',
       inputSchema: {
         meal_id: z.string().min(1).describe('Recipe id from list_my_meals.'),
         meal: z.enum(MEAL_IDS).describe(mealDescription),
-        date: z.string().optional().describe(dateDescription),
+        date: dateSchema,
+        dry_run: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('If true, previews recipe details without writing to the diary.'),
       },
       annotations: { destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
-    guard('log_meal', async ({ meal_id, meal, date }) => {
-      await kt.logMeal({ mealId: meal_id, meal, date });
-      // Same as log_food: the diary entry exists, so the read-back may not fail the tool.
-      const logged = (await kt.listMeals().catch(() => [])).find(m => m.id === meal_id);
+    guard('log_meal', async ({ meal_id, meal, date, dry_run }) => {
+      const formattedDate = date ?? todayCzech();
+      // Listing is required to preview a recipe, but not to log one by its id.
+      const recipeRead = kt.listMeals();
+      const recipes = await (dry_run ? recipeRead : recipeRead.catch(() => []));
+      const logged = recipes.find(m => m.id === meal_id);
+      if (dry_run) {
+        if (!logged) throw new KtError(`Unknown saved recipe id ${meal_id}. Call list_my_meals to select an existing recipe.`);
+        return json({
+          preview: true,
+          dry_run: true,
+          recipe: logged?.title ?? meal_id,
+          energy: logged && logged.energy !== null ? `${logged.energy} ${logged.energyUnit}` : null,
+          meal: getMealName(meal, kt.baseUrl),
+          date: formattedDate,
+          note: 'Preview only — recipe was not written to diary. Call with dry_run: false to commit.',
+        });
+      }
+      await kt.logMeal({ mealId: meal_id, meal, date: formattedDate });
       return json({
         logged: true,
+        dry_run: false,
         recipe: logged?.title ?? meal_id,
         energy: logged && logged.energy !== null ? `${logged.energy} ${logged.energyUnit}` : null,
         meal: getMealName(meal, kt.baseUrl),
-        date: date ?? todayCzech(),
+        date: formattedDate,
       });
     }),
   );
@@ -264,13 +323,23 @@ export function registerTools(server: McpServer, kt: KtClient): void {
     {
       title: 'Get a day summary',
       description:
-        'Read back totals from the diary for one day — use this when the user asks what they have eaten, how many calories they have left, or how a day went.',
+        'Read back totals and nutritional overview from the diary for one day — use this when the user asks what they have eaten, how many calories they have left, or how a day went. ' +
+        'Returns structured overview (calories current/target/remaining, macros, water) alongside raw summary details.',
       inputSchema: {
-        date: z.string().optional().describe(dateDescription),
+        date: dateSchema,
       },
     },
     guard('get_day_summary', async ({ date }) => {
-      return json({ date: date ?? todayCzech(), summary: await kt.getDaySummary(date) });
+      const formattedDate = date ?? todayCzech();
+      const raw = await kt.getDaySummary(formattedDate);
+      const diary = await kt.getDiarySummary(formattedDate);
+      const overview = extractDaySummaryOverview(raw, diary);
+      return json({
+        date: formattedDate,
+        overview,
+        summary: raw,
+        raw,
+      });
     }),
   );
 
@@ -279,17 +348,34 @@ export function registerTools(server: McpServer, kt: KtClient): void {
     {
       title: 'Record body weight',
       description:
-        'Log user body weight in kilograms to Kalorické Tabulky. Writes to their weight tracking log for the specified date (defaults to today).',
+        'Log user body weight in kilograms to Kalorické Tabulky. Writes to their weight tracking log for the specified date (defaults to today). ' +
+        'Set dry_run: true to preview without writing.',
       inputSchema: {
         weight_kg: z.number().positive().max(500).describe('Body weight in kilograms, e.g. 78.5 or 82.'),
-        date: z.string().optional().describe(dateDescription),
+        date: dateSchema,
+        dry_run: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('If true, previews the weight entry without writing to Kalorické Tabulky.'),
       },
       annotations: { destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
-    guard('record_weight', async ({ weight_kg, date }) => {
-      const result = await kt.recordWeight(weight_kg, date);
+    guard('record_weight', async ({ weight_kg, date, dry_run }) => {
+      const formattedDate = date ?? todayCzech();
+      if (dry_run) {
+        return json({
+          preview: true,
+          dry_run: true,
+          weight_kg,
+          date: formattedDate,
+          note: 'Preview only — no weight was recorded. Call with dry_run: false to commit.',
+        });
+      }
+      const result = await kt.recordWeight(weight_kg, formattedDate);
       return json({
         recorded: true,
+        dry_run: false,
         weight_kg: result.weight,
         date: result.date,
       });
@@ -303,13 +389,14 @@ export function registerTools(server: McpServer, kt: KtClient): void {
       description:
         'Retrieve recent body weight entries and history from Kalorické Tabulky monthly tracking statistics.',
       inputSchema: {
-        date: z.string().optional().describe(dateDescription),
+        date: dateSchema,
       },
     },
     guard('get_weight_history', async ({ date }) => {
-      const history = await kt.getWeightHistory(date);
+      const formattedDate = date ?? todayCzech();
+      const history = await kt.getWeightHistory(formattedDate);
       return json({
-        date: date ?? todayCzech(),
+        date: formattedDate,
         entries: history,
       });
     }),

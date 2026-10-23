@@ -153,6 +153,83 @@ export function parseCzechNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+export interface SummaryMetric {
+  current: number | null;
+  target: number | null;
+  unit: string | null;
+}
+
+export interface DaySummaryOverview {
+  energy: (SummaryMetric & { remaining: number | null }) | null;
+  macros: Record<'protein' | 'carbs' | 'fat' | 'fiber', SummaryMetric>;
+  water: SummaryMetric | null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function summaryData(raw: unknown): Record<string, unknown> | null {
+  if (!isRecord(raw)) return null;
+  return 'data' in raw ? (isRecord(raw['data']) ? raw['data'] : null) : raw;
+}
+
+/** Statistics contain energy/water; macro goals come from the separate diary summary. */
+export function extractDaySummaryOverview(raw: unknown, diaryRaw?: unknown): DaySummaryOverview | null {
+  const data = summaryData(raw);
+  if (!data) return null;
+  const diary = summaryData(diaryRaw);
+  const groups = diary?.['itemsDynamic'];
+  const nutrients = Array.isArray(groups) ? groups.flatMap(group => Array.isArray(group) ? group.filter(isRecord) : []) : [];
+  const macro = (code: string): SummaryMetric => {
+    const item = nutrients.find(row => row['code'] === code);
+    return {
+      current: parseCzechNumber(item?.['actualValue']) ?? parseCzechNumber(item?.['actual']),
+      target: parseCzechNumber(item?.['goal']),
+      unit: typeof item?.['unit'] === 'string' ? item['unit'] : null,
+    };
+  };
+
+  const energy = parseCzechNumber(data['todayEnergy']);
+  const energyTarget = parseCzechNumber(data['todayEnergyTarget']);
+  const drinkUnit = typeof data['drinkUnit'] === 'string' ? data['drinkUnit'] : null;
+  // Keep the tool's millilitre output for litres; preserve other reported units.
+  const drinkScale = drinkUnit === 'l' ? 1000 : 1;
+  const drinkAmount = (value: unknown) => {
+    const amount = parseCzechNumber(value);
+    return amount === null ? null : amount * drinkScale;
+  };
+  const water = drinkAmount(data['todayDrink']);
+  const waterTarget = drinkAmount(data['todayDrinkTarget']);
+
+  return {
+    energy:
+      energy !== null || energyTarget !== null
+        ? {
+            current: energy,
+            target: energyTarget,
+            remaining:
+              energy !== null && energyTarget !== null ? Math.round((energyTarget - energy) * 10) / 10 : null,
+            unit: typeof data['energyUnit'] === 'string' ? data['energyUnit'] : null,
+          }
+        : null,
+    macros: {
+      protein: macro('protein'),
+      carbs: macro('carbohydrate'),
+      fat: macro('fat'),
+      fiber: macro('fiber'),
+    },
+    water:
+      water !== null || waterTarget !== null
+        ? {
+            current: water,
+            target: waterTarget,
+            unit: drinkUnit === 'l' ? 'ml' : drinkUnit,
+          }
+        : null,
+  };
+}
+
 /** The site formats dates as dd.MM.yyyy everywhere. */
 export function formatCzechDate(date: Date): string {
   const dd = String(date.getDate()).padStart(2, '0');
@@ -175,11 +252,19 @@ export function todayCzech(): string {
 
 /**
  * Dates come from the model, and one of them ends up in a URL path, so accept
- * nothing but the site's own dd.MM.yyyy shape.
+ * only real calendar dates in the site's own dd.MM.yyyy shape.
  */
 export function assertCzechDate(date: string): string {
-  if (!/^\d{2}\.\d{2}\.\d{4}$/.test(date)) {
-    throw new Error(`Invalid date "${date}" — expected dd.MM.yyyy, e.g. ${todayCzech()}`);
+  const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(date);
+  const day = Number(match?.[1]);
+  const month = Number(match?.[2]);
+  const year = Number(match?.[3]);
+  // setUTCFullYear avoids Date.UTC's special interpretation of years 00–99.
+  const calendarDate = new Date(0);
+  calendarDate.setUTCFullYear(year, month - 1, day);
+  if (!match || year < 1 || calendarDate.getUTCFullYear() !== year ||
+      calendarDate.getUTCMonth() !== month - 1 || calendarDate.getUTCDate() !== day) {
+    throw new Error(`Invalid date "${date}" — expected a real date in dd.MM.yyyy, e.g. ${todayCzech()}`);
   }
   return date;
 }
@@ -381,6 +466,7 @@ export class KtClient {
     meal: MealId;
     date?: string;
   }): Promise<void> {
+    const date = args.date === undefined ? todayCzech() : assertCzechDate(args.date);
     // Fetch the form with a session established, exactly as the site's own
     // frontend does: it carries user-specific fields (favourite, preferred
     // unit) that we must post back unchanged.
@@ -396,7 +482,7 @@ export class KtClient {
     payload['multiplier'] = args.amount;
     payload['unitGuid'] = args.unitId ?? form['unitGuid'] ?? GRAM_UNIT;
     payload['diaryTimeGuid'] = args.meal;
-    payload['date'] = args.date === undefined ? todayCzech() : assertCzechDate(args.date);
+    payload['date'] = date;
 
     await this.authed('/user/foodstuff/add?format=json&=', { method: 'POST', body: payload });
   }
@@ -404,6 +490,11 @@ export class KtClient {
   /** Raw daily summary. Shape is not fully documented, so it is passed through. */
   async getDaySummary(date?: string): Promise<unknown> {
     return this.authed(`/statistic/summary/${date === undefined ? todayCzech() : assertCzechDate(date)}/get?format=json`);
+  }
+
+  /** Macro progress rows and goals are not part of the statistics summary. */
+  async getDiarySummary(date?: string): Promise<unknown> {
+    return this.authed(`/user/diary/summary/${date === undefined ? todayCzech() : assertCzechDate(date)}/get?format=json`);
   }
 
   /**
@@ -541,6 +632,7 @@ export class KtClient {
    * individually when they ate part of one.
    */
   async logMeal(args: { mealId: string; meal: MealId; date?: string }): Promise<void> {
+    const date = args.date === undefined ? todayCzech() : assertCzechDate(args.date);
     const form = (await this.authed(
       `/user/meal/add/form/${encodeURIComponent(args.mealId)}?format=json`,
     )) as Record<string, unknown>;
@@ -548,7 +640,7 @@ export class KtClient {
     // As in logFood: post the form back whole, as the site's frontend does.
     const payload: Record<string, unknown> = { ...form };
     payload['diaryTimeGuid'] = args.meal;
-    payload['date'] = args.date === undefined ? todayCzech() : assertCzechDate(args.date);
+    payload['date'] = date;
     payload['selectedUnitGuid'] = PORTION_UNIT;
     payload['count'] = 1;
 
