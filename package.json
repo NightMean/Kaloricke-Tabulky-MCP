@@ -1,16 +1,16 @@
 {
-  "name": "kt-mcp",
+  "name": "kaloricke-tabulky-mcp",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "Self-hosted remote MCP server exposing kaloricketabulky.cz food logging to AI agents",
+  "description": "MCP server exposing kaloricketabulky.cz food logging to AI agents",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/stany9g/kt-mcp.git"
+    "url": "git+https://github.com/NightMean/Kaloricke-Tabulky-MCP.git"
   },
-  "bugs": "https://github.com/stany9g/kt-mcp/issues",
-  "homepage": "https://github.com/stany9g/kt-mcp#readme",
+  "bugs": "https://github.com/NightMean/Kaloricke-Tabulky-MCP/issues",
+  "homepage": "https://github.com/NightMean/Kaloricke-Tabulky-MCP#readme",
   "engines": {
     "node": ">=22"
   },
