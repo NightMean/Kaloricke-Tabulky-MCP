@@ -62,6 +62,9 @@ The server communicates via standard MCP over HTTPS with OAuth 2.1 and is tested
 | `copy_diary_entries` | Copy selected entry IDs to another date; supports `dry_run`. |
 | `record_weight` | Log user body weight (kg) for a given date (supports `dry_run: true`). |
 | `get_weight_history` | Retrieve recent body weight entries from monthly tracking statistics. |
+| `get_statistics` | Read energy, nutrient, water, weight or custom measurement series for an explicit `from`/`to` range. |
+| `get_tracking_tips` | Read the website's tips for a date range. |
+| `get_tracking_streak` | Read tracking streak information for a date. |
 | `create_meal` | Save a recipe built from existing foods. |
 | `list_my_meals` | List saved recipes with their ids and total energy. |
 | `log_meal` | Log a saved recipe into the diary with optional portion scaling (supports `dry_run: true`). |

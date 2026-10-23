@@ -9,6 +9,7 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerDiaryTools } from './diary-tools.js';
+import { registerStatisticsTools } from './statistics-tools.js';
 import { guard, json } from './shared.js';
 import {
   GRAM_UNIT,
@@ -41,6 +42,7 @@ const dateSchema = z.string().superRefine((date, context) => {
 
 export function registerTools(server: McpServer, kt: KtClient): void {
   registerDiaryTools(server, kt);
+  registerStatisticsTools(server, kt);
   server.registerTool(
     'search_food',
     {

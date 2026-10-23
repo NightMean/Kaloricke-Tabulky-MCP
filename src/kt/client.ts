@@ -12,6 +12,7 @@
 
 import { createHash } from 'node:crypto';
 import { DiaryApi } from './diary.js';
+import { StatisticsApi } from './statistics.js';
 
 export const DEFAULT_BASE_URL = 'https://www.kaloricketabulky.cz';
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
@@ -292,6 +293,7 @@ export interface KtCredentials {
 
 export class KtClient {
   readonly diary = new DiaryApi((path, init) => this.authed(path, init));
+  readonly statistics = new StatisticsApi((path, init) => this.authed(path, init));
   private cookie: string | null = null;
   private loginInFlight: Promise<void> | null = null;
   readonly baseUrl: string;

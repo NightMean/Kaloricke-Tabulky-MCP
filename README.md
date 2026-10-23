@@ -62,6 +62,9 @@ Server komunikuje standardním protokolem MCP přes HTTPS s OAuth 2.1 a je otest
 | `copy_diary_entries` | Zkopíruje vybraná ID do jiného dne; podporuje `dry_run`. |
 | `record_weight` | Zapíše tělesnou hmotnost (kg) uživatele k danému dni (podporuje `dry_run: true`). |
 | `get_weight_history` | Načte historii záznamů tělesné hmotnosti z měsíčních statistik. |
+| `get_statistics` | Načte energii, živiny, vodu, hmotnost nebo vlastní měření pro interval `from`/`to`. |
+| `get_tracking_tips` | Načte doporučení webu pro interval dat. |
+| `get_tracking_streak` | Načte informace o pravidelnosti zapisování. |
 | `create_meal` | Uloží recept složený z existujících potravin. |
 | `list_my_meals` | Vypíše uložené recepty s jejich id a celkovou energií. |
 | `log_meal` | Zaloguje uložený recept do jídelníčku s možností škálování porce (podporuje `dry_run: true`). |

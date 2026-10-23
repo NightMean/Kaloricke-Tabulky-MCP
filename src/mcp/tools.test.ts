@@ -238,6 +238,36 @@ const detailedDiary = {
   activities: [{ id: 'activity-one', selected: true }], notes: [],
 };
 
+test('range statistics preserve raw series and validate all range and metric inputs before requests', async t => {
+  const raw = { unit: 'kg', values: [null, '80,1'], from: 1, to: 2 };
+  const { client, requests } = await connectTools(t, url => {
+    assert.equal(url.pathname, '/statistic/weight/20.10.2026/23.10.2026/get');
+    return Response.json({ code: 0, data: raw });
+  });
+  const args = { metric: 'weight', from: '20.10.2026', to: '23.10.2026' };
+  for (const patch of [{ from: '24.10.2026' }, { to: '31.02.2026' }, { metric: '../../bad' }]) {
+    assert.equal((await client.callTool({ name: 'get_statistics', arguments: { ...args, ...patch } })).isError, true);
+  }
+  assert.deepEqual(requests, []);
+  const result = await client.callTool({ name: 'get_statistics', arguments: args });
+  assert.ok(!result.isError);
+  assert.ok(Array.isArray(result.content) && result.content[0]?.type === 'text');
+  assert.deepEqual(JSON.parse(result.content[0].text).statistics, raw);
+});
+
+test('tracking streak converts calendar dates and custom statistics preserve list responses', async t => {
+  const { client } = await connectTools(t, url => {
+    if (url.pathname === '/user/streak') {
+      assert.equal(url.searchParams.get('date'), '2026-10-23');
+      return Response.json({ code: 0, data: 10 });
+    }
+    assert.equal(url.pathname, '/statistic/optional/20.10.2026/23.10.2026/get');
+    return Response.json({ code: 0, data: [] });
+  });
+  assert.ok(!(await client.callTool({ name: 'get_tracking_streak', arguments: { date: '23.10.2026' } })).isError);
+  assert.ok(!(await client.callTool({ name: 'get_statistics', arguments: { metric: 'optional', from: '20.10.2026', to: '23.10.2026' } })).isError);
+});
+
 test('diary food correction validates the date, entry ownership and offered units', async t => {
   let posted: unknown;
   const { client, requests } = await connectTools(t, (url, init) => {
