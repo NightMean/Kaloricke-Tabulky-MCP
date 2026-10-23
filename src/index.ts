@@ -23,7 +23,11 @@ import { MCP_SCOPE, SingleUserOAuthProvider } from './auth/provider.js';
 const config = loadConfig();
 const mcpEndpoint = new URL('/mcp', config.publicUrl);
 
-const kt = new KtClient({ email: config.ktEmail, password: config.ktPassword });
+const kt = new KtClient({
+  email: config.ktEmail,
+  password: config.ktPassword,
+  domain: config.ktDomain,
+});
 const provider = new SingleUserOAuthProvider(config.mcpAuthPassword, join(config.stateDir, 'oauth-state.json'));
 
 const app = express();
@@ -85,8 +89,8 @@ app.post('/mcp', requireAuth, async (req, res) => {
     { name: 'kaloricketabulky', version: '0.1.0' },
     {
       instructions:
-        'Logs food into the user\'s kaloricketabulky.cz diary. The food database is Czech: search with Czech terms for the best matches. ' +
-        'When the user gives a count rather than a weight ("3 eggs"), call get_food_portions and log a natural portion unit instead of estimating grams.',
+        'Logs food into the user\'s kaloricketabulky.cz / kaloricketabulky.sk diary. The food database supports Czech and Slovak searches. ' +
+        'When the user gives a count rather than a weight ("3 eggs", "3 vajcia"), call get_food_portions and log a natural portion unit instead of estimating grams.',
     },
   );
   registerTools(server, kt);

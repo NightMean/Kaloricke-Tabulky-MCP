@@ -8,7 +8,7 @@
 
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { GRAM_UNIT, KtClient, MEALS, type MealId, todayCzech } from '../kt/client.js';
+import { GRAM_UNIT, KtClient, MEALS, type MealId, getMealName, todayCzech } from '../kt/client.js';
 
 const MEAL_IDS = Object.keys(MEALS) as [MealId, ...MealId[]];
 
@@ -17,7 +17,7 @@ const mealDescription = `Which meal slot to file the entry under: ${Object.entri
   .join(', ')}.`;
 
 const dateDescription =
-  'Date in dd.MM.yyyy format (Czech style). Omit for today. Use this to log something the user ate on a previous day.';
+  'Date in dd.MM.yyyy format (Czech/Slovak style). Omit for today. Use this to log something the user ate on a previous day.';
 
 /** Tool results are text; JSON keeps them unambiguous for the model. */
 function json(value: unknown) {
@@ -56,18 +56,18 @@ export function registerTools(server: McpServer, kt: KtClient): void {
     {
       title: 'Search foods',
       description:
-        'Find foods in the kaloricketabulky.cz database by name or barcode. Call this first whenever the user mentions eating something, to get the food id the other tools need. ' +
-        'The database is Czech, so prefer Czech search terms ("vejce" rather than "egg") for the best matches. ' +
+        'Find foods in the kaloricketabulky.cz / kaloricketabulky.sk database by name or barcode. Call this first whenever the user mentions eating something, to get the food id the other tools need. ' +
+        'The database supports Czech and Slovak, so search terms in Czech or Slovak ("vejce" / "vajcia") work best. ' +
         'A 13-digit EAN barcode also works and resolves to the exact product.',
       inputSchema: {
-        query: z.string().min(1).describe('Food name (Czech works best) or a 13-digit EAN barcode.'),
+        query: z.string().min(1).describe('Food name (Czech or Slovak works best) or a 13-digit EAN barcode.'),
         limit: z.number().int().min(1).max(25).optional().describe('Maximum results to return. Defaults to 10.'),
       },
     },
     guard('search_food', async ({ query, limit }) => {
       const hits = await kt.search(query, limit ?? 10);
       if (hits.length === 0) {
-        return json({ results: [], hint: 'No matches. Try a different or more general Czech term.' });
+        return json({ results: [], hint: 'No matches. Try a different or more general Czech or Slovak term.' });
       }
       return json({ results: hits });
     }),
@@ -145,7 +145,7 @@ export function registerTools(server: McpServer, kt: KtClient): void {
       const nutrition = await kt.getNutrition(food_id, amount, unit).catch(() => null);
       return json({
         logged: true,
-        meal: MEALS[meal],
+        meal: getMealName(meal, kt.baseUrl),
         date: date ?? todayCzech(),
         amount,
         nutrition,
@@ -233,7 +233,7 @@ export function registerTools(server: McpServer, kt: KtClient): void {
         logged: true,
         recipe: logged?.title ?? meal_id,
         energy: logged && logged.energy !== null ? `${logged.energy} ${logged.energyUnit}` : null,
-        meal: MEALS[meal],
+        meal: getMealName(meal, kt.baseUrl),
         date: date ?? todayCzech(),
       });
     }),

@@ -6,6 +6,7 @@
 export interface Config {
   ktEmail: string;
   ktPassword: string;
+  ktDomain: string;
   mcpAuthPassword: string;
   publicUrl: URL;
   port: number;
@@ -44,6 +45,7 @@ export function loadConfig(): Config {
   return {
     ktEmail: required('KT_EMAIL'),
     ktPassword: required('KT_PASSWORD'),
+    ktDomain: process.env['KT_DOMAIN']?.trim() || process.env['KT_BASE_URL']?.trim() || 'kaloricketabulky.cz',
     mcpAuthPassword,
     publicUrl,
     port,

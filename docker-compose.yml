@@ -10,6 +10,8 @@ services:
     environment:
       KT_EMAIL: ${KT_EMAIL}
       KT_PASSWORD: ${KT_PASSWORD}
+      KT_DOMAIN: ${KT_DOMAIN:-}
+      KT_BASE_URL: ${KT_BASE_URL:-}
       MCP_AUTH_PASSWORD: ${MCP_AUTH_PASSWORD}
       PUBLIC_URL: ${PUBLIC_URL}
       PORT: 8092

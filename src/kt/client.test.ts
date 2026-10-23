@@ -1,6 +1,11 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { formatCzechDate, parseCzechNumber } from './client.js';
+import {
+  formatCzechDate,
+  getMealName,
+  normalizeKtBaseUrl,
+  parseCzechNumber,
+} from './client.js';
 
 test('parses Czech decimal commas', () => {
   assert.equal(parseCzechNumber('20,43'), 20.43);
@@ -31,4 +36,23 @@ test('returns null rather than a misleading zero for absent values', () => {
 test('formats dates the way the site expects', () => {
   assert.equal(formatCzechDate(new Date(2026, 7, 2)), '02.08.2026');
   assert.equal(formatCzechDate(new Date(2026, 11, 25)), '25.12.2026');
+});
+
+test('normalizes domain names and base URLs to standard https format', () => {
+  assert.equal(normalizeKtBaseUrl(), 'https://www.kaloricketabulky.cz');
+  assert.equal(normalizeKtBaseUrl(''), 'https://www.kaloricketabulky.cz');
+  assert.equal(normalizeKtBaseUrl('kaloricketabulky.cz'), 'https://www.kaloricketabulky.cz');
+  assert.equal(normalizeKtBaseUrl('kaloricketabulky.sk'), 'https://www.kaloricketabulky.sk');
+  assert.equal(normalizeKtBaseUrl('www.kaloricketabulky.sk'), 'https://www.kaloricketabulky.sk');
+  assert.equal(normalizeKtBaseUrl('https://www.kaloricketabulky.sk/'), 'https://www.kaloricketabulky.sk');
+  assert.equal(normalizeKtBaseUrl('https://kaloricketabulky.sk'), 'https://kaloricketabulky.sk');
+});
+
+test('resolves meal names appropriately for Czech and Slovak domains', () => {
+  assert.equal(getMealName('1', 'https://www.kaloricketabulky.cz'), 'Snídaně');
+  assert.equal(getMealName('1', 'https://www.kaloricketabulky.sk'), 'Raňajky');
+  assert.equal(getMealName('2', 'kaloricketabulky.sk'), 'Desiata');
+  assert.equal(getMealName('4', 'kaloricketabulky.sk'), 'Olovrant');
+  assert.equal(getMealName('5', 'kaloricketabulky.sk'), 'Večera');
+  assert.equal(getMealName('3', 'kaloricketabulky.cz'), 'Oběd');
 });

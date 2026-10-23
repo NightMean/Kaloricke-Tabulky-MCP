@@ -12,7 +12,7 @@
 
 import { createHash } from 'node:crypto';
 
-const BASE = 'https://www.kaloricketabulky.cz';
+export const DEFAULT_BASE_URL = 'https://www.kaloricketabulky.cz';
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
 
 /** unitGuid for plain grams — accepted by every solid food. */
@@ -26,15 +26,53 @@ export const PORTION_UNIT = '0000000000000004';
 
 /** Diary time slots, keyed by the `diaryTimeGuid` the site expects. */
 export const MEALS = {
+  '1': 'Snídaně / Raňajky',
+  '2': 'Dopolední svačina / Desiata',
+  '3': 'Oběd / Obed',
+  '4': 'Odpolední svačina / Olovrant',
+  '5': 'Večeře / Večera',
+  '6': 'Druhá večeře / Druhá večera',
+} as const;
+
+export type MealId = keyof typeof MEALS;
+
+export const MEAL_NAMES_CZ: Record<MealId, string> = {
   '1': 'Snídaně',
   '2': 'Dopolední svačina',
   '3': 'Oběd',
   '4': 'Odpolední svačina',
   '5': 'Večeře',
   '6': 'Druhá večeře',
-} as const;
+};
 
-export type MealId = keyof typeof MEALS;
+export const MEAL_NAMES_SK: Record<MealId, string> = {
+  '1': 'Raňajky',
+  '2': 'Desiata',
+  '3': 'Obed',
+  '4': 'Olovrant',
+  '5': 'Večera',
+  '6': 'Druhá večera',
+};
+
+export function getMealName(mealId: MealId, domainOrBaseUrl?: string): string {
+  const isSk = typeof domainOrBaseUrl === 'string' && domainOrBaseUrl.toLowerCase().includes('.sk');
+  return (isSk ? MEAL_NAMES_SK : MEAL_NAMES_CZ)[mealId] ?? MEAL_NAMES_CZ[mealId];
+}
+
+export function normalizeKtBaseUrl(input?: string): string {
+  if (!input || input.trim() === '') {
+    return DEFAULT_BASE_URL;
+  }
+  let trimmed = input.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    const url = new URL(trimmed);
+    url.search = '';
+    url.hash = '';
+    return url.origin;
+  }
+  trimmed = trimmed.replace(/^www\./i, '').replace(/\/+$/, '');
+  return `https://www.${trimmed}`;
+}
 
 export interface FoodHit {
   id: string;
@@ -144,13 +182,18 @@ export function assertCzechDate(date: string): string {
 export interface KtCredentials {
   email: string;
   password: string;
+  domain?: string;
+  baseUrl?: string;
 }
 
 export class KtClient {
   private cookie: string | null = null;
   private loginInFlight: Promise<void> | null = null;
+  readonly baseUrl: string;
 
-  constructor(private readonly credentials: KtCredentials) {}
+  constructor(private readonly credentials: KtCredentials) {
+    this.baseUrl = normalizeKtBaseUrl(credentials.baseUrl ?? credentials.domain);
+  }
 
   private async request(
     path: string,
@@ -163,7 +206,7 @@ export class KtClient {
     if (this.cookie) headers['Cookie'] = this.cookie;
     if (init.body !== undefined) headers['Content-Type'] = 'application/json';
 
-    const response = await fetch(BASE + path, {
+    const response = await fetch(this.baseUrl + path, {
       method: init.method ?? 'GET',
       headers,
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
