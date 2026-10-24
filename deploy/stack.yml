@@ -1,5 +1,5 @@
 # Optional Cloudflare Tunnel deployment with Docker Compose.
-# Set KT_MCP_IMAGE in .env, then run from the repository root:
+# Configure credentials in .env, then run from the repository root:
 #
 #   docker compose -p kt-mcp --env-file .env -f deploy/stack.yml pull
 #   docker compose -p kt-mcp --env-file .env -f deploy/stack.yml up -d
@@ -17,7 +17,7 @@
 # configured to reach http://localhost:80.
 services:
   kt-mcp:
-    image: ${KT_MCP_IMAGE:-kt-mcp:latest}
+    image: ghcr.io/nightmean/kaloricke-tabulky-mcp:latest
     container_name: kaloricke-tabulky-mcp
     restart: unless-stopped
     environment:

@@ -2,7 +2,7 @@
 # `docker compose build` builds a local image; deploy/stack.yml adds a tunnel.
 services:
   kt-mcp:
-    image: ${KT_MCP_IMAGE:-kt-mcp:latest}
+    image: ghcr.io/nightmean/kaloricke-tabulky-mcp:latest
     container_name: kaloricke-tabulky-mcp
     build: .
     environment:

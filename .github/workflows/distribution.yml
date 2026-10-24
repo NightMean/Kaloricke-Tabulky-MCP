@@ -1,10 +1,10 @@
-name: Verify or publish Docker image
+name: Verify or publish release
 
 on:
   workflow_dispatch:
     inputs:
       publish_image:
-        description: Publish the versioned image to GHCR
+        description: Publish Docker images and the compiled GitHub release package
         type: boolean
         default: false
 
@@ -22,6 +22,7 @@ jobs:
     outputs:
       version: ${{ steps.metadata.outputs.version }}
       image: ${{ steps.metadata.outputs.image }}
+      tags: ${{ steps.metadata.outputs.tags }}
     steps:
       - name: Require main for publication
         if: inputs.publish_image && github.ref != 'refs/heads/main'
@@ -38,8 +39,18 @@ jobs:
       - id: metadata
         name: Read package identity
         run: |
-          echo "version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
-          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          version=$(node -p 'require("./package.json").version')
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          {
+            echo "version=$version"
+            echo "image=$image"
+            echo 'tags<<EOF'
+            echo "$image:$version"
+            echo "$image:v$version"
+            echo "$image:sha-$GITHUB_SHA"
+            if [[ "$version" != *-* ]]; then echo "$image:latest"; fi
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
       - name: Build native image
         run: docker build -t kt-mcp:verification .
       - name: Check container HTTP startup and authentication
@@ -97,10 +108,50 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ needs.verify.outputs.image }}:${{ needs.verify.outputs.version }}
-            ${{ needs.verify.outputs.image }}:sha-${{ github.sha }}
+          tags: ${{ needs.verify.outputs.tags }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ needs.verify.outputs.version }}
+
+  release:
+    if: inputs.publish_image && github.ref == 'refs/heads/main'
+    needs: [verify, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+      - name: Create compiled release asset
+        env:
+          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          mkdir -p artifacts
+          npm pack --pack-destination artifacts
+          mv "artifacts/kaloricke-tabulky-mcp-$RELEASE_VERSION.tgz" artifacts/kaloricke-tabulky-mcp.tgz
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          cat > artifacts/release-notes.md <<'NOTES'
+          ## Installation
+          - Local MCP: run the compiled release archive with npx; Node.js 22+ is required. No Docker or npm account is needed.
+          - Self-hosting: Docker Compose uses the public GHCR image with the latest stable tag by default.
+
+          ## Included
+          - The same 45 diary, recipe, activity and nutrition tools over native stdio and OAuth-protected HTTP.
+          - Compiled CLI package, multi-platform Docker images and security-patched runtime dependencies.
+
+          See the README and setup guides for credentials and client configuration.
+          NOTES
+          gh release create "v$RELEASE_VERSION" artifacts/kaloricke-tabulky-mcp.tgz \
+            --target "$GITHUB_SHA" --title "v$RELEASE_VERSION" --notes-file artifacts/release-notes.md
