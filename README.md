@@ -58,9 +58,37 @@ HTTPS reverzní proxy nasměrujte na `http://127.0.0.1:8092` na hostiteli Docker
 > [!WARNING]
 > Lokální stdio poskytuje slabší oddělení přihlašovacích údajů: harness s přístupem k prostředí MCP procesu nebo `.env` může přečíst váš e-mail a heslo ke KT. Pro lepší oddělení použijte HTTP na samostatném serveru.
 
-Nainstalujte Node.js 22 nebo novější a podle [lokálního návodu](docs/LOCAL-MCP.md) spusťte sestavený balíček z GitHub Releases pomocí `npx`. Přihlašovací údaje KT nastavte v sekci `env` svého klienta. Docker, klonování repozitáře, sestavení ani účet npm nejsou potřeba; `.env` je volitelný.
+1. Nainstalujte **Node.js 22 nebo novější**.
+
+2. Ve svém klientovi přidejte lokální MCP server (stdio) s tímto příkazem:
+
+   ```sh
+   npx --yes https://github.com/NightMean/Kaloricke-Tabulky-MCP/releases/latest/download/kaloricke-tabulky-mcp.tgz
+   ```
+
+   Pokud má klient samostatná pole, nastavte **Command** na `npx` a jako dva **Arguments** zadejte `--yes` a URL. `npx` sestavený balíček automaticky stáhne a spustí.
+
+3. V proměnných prostředí serveru (`env`) nastavte `KT_EMAIL` a `KT_PASSWORD`. Pro slovenský účet přidejte `KT_DOMAIN=kaloricketabulky.sk`; výchozí je `kaloricketabulky.cz`. Samostatný soubor `.env` je volitelný.
+
+4. Restartujte klienta nebo znovu načtěte jeho MCP servery a ověřte, že se zobrazily nástroje. [Lokální návod](docs/LOCAL-MCP.md) ukazuje, kam tato nastavení zadat v Codexu a Hermesu.
 
 Klient spravuje životní cyklus procesu. Naslouchající port, veřejná doména, tunel ani nastavení MCP OAuth nejsou potřeba. Konfiguraci klienta s přihlašovacími údaji chraňte.
+
+<details>
+<summary>Sestavení ze zdrojového kódu (alternativa)</summary>
+
+S nainstalovaným Gitem a Node.js 22 nebo novějším spusťte:
+
+```sh
+git clone https://github.com/NightMean/Kaloricke-Tabulky-MCP.git
+cd Kaloricke-Tabulky-MCP
+npm ci
+npm run build
+```
+
+V klientovi nastavte **Command** na `node` a jako argument zadejte absolutní cestu k `dist/stdio.js`. Použijte stejné proměnné prostředí jako v kroku 3 výše.
+
+</details>
 
 ### Klienti
 

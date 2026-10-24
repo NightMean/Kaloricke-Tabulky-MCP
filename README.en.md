@@ -58,9 +58,37 @@ Point your HTTPS reverse proxy at `http://127.0.0.1:8092` on the Docker host. Co
 > [!WARNING]
 > Local stdio provides less credential isolation: a harness with access to the subprocess environment or `.env` can read your KT email and password. Choose HTTP on a separate server for stronger credential isolation.
 
-Install Node.js 22 or newer, then follow the [local setup guide](docs/LOCAL-MCP.md) to launch the compiled GitHub release with `npx` and pass KT credentials in your client's `env` settings. No Docker, repository checkout, build, or npm account is needed; `.env` is optional.
+1. Install **Node.js 22 or newer**.
+
+2. Add a local (stdio) MCP server in your client with this launch command:
+
+   ```sh
+   npx --yes https://github.com/NightMean/Kaloricke-Tabulky-MCP/releases/latest/download/kaloricke-tabulky-mcp.tgz
+   ```
+
+   For clients with separate fields, set **Command** to `npx` and pass `--yes` and the URL as two **Arguments**. `npx` downloads and runs the compiled release automatically.
+
+3. Set `KT_EMAIL` and `KT_PASSWORD` in the server's environment settings (`env`). For a Slovak account, also set `KT_DOMAIN=kaloricketabulky.sk`; the default is `kaloricketabulky.cz`. A separate `.env` file is optional.
+
+4. Restart or reload your MCP client and check that the tools appear. The [local setup guide](docs/LOCAL-MCP.md) shows where to enter these settings in Codex and Hermes.
 
 The client manages the process. No listening port, public hostname, tunnel, or MCP OAuth setup is needed. Protect the client configuration containing your credentials.
+
+<details>
+<summary>Build from source (alternative)</summary>
+
+With Git and Node.js 22 or newer installed, run:
+
+```sh
+git clone https://github.com/NightMean/Kaloricke-Tabulky-MCP.git
+cd Kaloricke-Tabulky-MCP
+npm ci
+npm run build
+```
+
+Set your client's **Command** to `node` and pass the absolute path to `dist/stdio.js` as its argument. Use the same environment settings from step 3 above.
+
+</details>
 
 ### Clients
 
