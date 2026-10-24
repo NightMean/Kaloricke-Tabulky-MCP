@@ -148,6 +148,13 @@ export function baseUnitOf(units: UnitOption[]): string {
   return units.find(u => u.grams === 0 || u.grams === 1)?.id ?? GRAM_UNIT;
 }
 
+/** The add form's unitGuid is a preferred portion, not necessarily g or ml. */
+function parseUnitOptions(form: Record<string, unknown>): UnitOption[] {
+  const raw = Array.isArray(form['unitOptions']) ? form['unitOptions'] : [];
+  return raw.filter((unit): unit is Record<string, unknown> => !!unit && typeof unit === 'object')
+    .map(unit => ({ id: String(unit['id']), title: String(unit['title']), grams: parseCzechNumber(unit['multiplier']) ?? 0 }));
+}
+
 /**
  * Czech number formatting: decimal comma, thin/regular space as the thousands
  * separator ("1 043", "20,43"). Returns null for absent or unparseable values
@@ -460,14 +467,7 @@ export class KtClient {
     const form = this.parseEnvelope(text, 'food detail') as Record<string, unknown>;
     if (typeof form['guid'] !== 'string') throw new KtError(`food detail: unknown food id ${foodId}`);
 
-    const rawUnits = Array.isArray(form['unitOptions']) ? form['unitOptions'] : [];
-    const units: UnitOption[] = rawUnits
-      .filter((u): u is Record<string, unknown> => !!u && typeof u === 'object')
-      .map(u => ({
-        id: String(u['id']),
-        title: String(u['title']),
-        grams: parseCzechNumber(u['multiplier']) ?? 0,
-      }));
+    const units = parseUnitOptions(form);
     // The site echoes back whatever guid is requested, even for foods that do
     // not exist, so the guid check above no longer catches bad ids. A real
     // food always offers at least its base unit; an empty list means the id
@@ -536,7 +536,7 @@ export class KtClient {
     // ("Potravinu se nepodařilo zapsat do deníku").
     const payload: Record<string, unknown> = { ...form };
     payload['multiplier'] = args.amount;
-    payload['unitGuid'] = args.unitId ?? form['unitGuid'] ?? GRAM_UNIT;
+    payload['unitGuid'] = args.unitId ?? baseUnitOf(parseUnitOptions(form));
     payload['diaryTimeGuid'] = args.meal;
     payload['date'] = date;
 

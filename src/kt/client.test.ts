@@ -253,3 +253,27 @@ test('cancelling one caller does not cancel shared login for another caller', as
   assert.equal(logins, 1);
   assert.equal(reads, 1);
 });
+
+test('direct food logging defaults to the base unit rather than the preferred portion', async t => {
+  const { KtClient } = await import('./client.js');
+  for (const unit of ['0000000000000001', '0000000000000002']) {
+    let posted: Record<string, unknown> | undefined;
+    t.mock.method(globalThis, 'fetch', async (input: string, init?: RequestInit) => {
+      const path = new URL(input).pathname;
+      if (path === '/login/create') return Response.json({ code: 0 }, { headers: { 'set-cookie': 'JSESSIONID=fixture' } });
+      if (path.startsWith('/foodstuff/detail/form/')) return Response.json({ code: 0, data: {
+        guid: 'fixture', unitGuid: 'preferred-portion', unitOptions: [
+          { id: 'preferred-portion', title: 'portion', multiplier: 250 }, { id: unit, title: 'base', multiplier: null },
+        ],
+      } });
+      assert.equal(path, '/user/foodstuff/add');
+      posted = JSON.parse(String(init?.body));
+      return Response.json({ code: 0 });
+    });
+    const client = new KtClient({ email: 'fixture@example.invalid', password: 'fixture' });
+    await client.logFood({ foodId: 'fixture', amount: 100, meal: '1' });
+    assert.equal(posted?.unitGuid, unit);
+    assert.equal(posted?.multiplier, 100);
+    t.mock.restoreAll();
+  }
+});

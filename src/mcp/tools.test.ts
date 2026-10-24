@@ -38,7 +38,7 @@ async function connectTools(t: TestContext, reply: (url: URL, init?: RequestInit
     if (url.pathname === '/login/create') {
       return Response.json({ code: 0, data: {} }, { headers: { 'set-cookie': 'JSESSIONID=test-session; Path=/' } });
     }
-    if (!url.pathname.startsWith('/foodstuff/detail/') || url.pathname.startsWith('/foodstuff/detail/form/')) {
+    if (!url.pathname.startsWith('/foodstuff/detail/')) {
       assert.equal(new Headers(init?.headers).get('Cookie'), 'JSESSIONID=test-session');
     }
     return reply(url, init);
@@ -149,7 +149,8 @@ test('valid previews never write and both explicit and default commits write exa
       return Response.json({ code: 0, data: [{ guid: 'test-recipe', title: 'Recipe', energy: '250', energyUnit: 'kcal' }] });
     }
     if (url.pathname === '/foodstuff/detail/form/test-food') {
-      return Response.json({ code: 0, data: { guid: 'test-food', unitGuid: GRAM_UNIT } });
+      return Response.json({ code: 0, data: { guid: 'test-food', unitGuid: GRAM_UNIT,
+        unitOptions: [{ id: GRAM_UNIT, title: '1 g', multiplier: null }] } });
     }
     if (url.pathname === '/user/meal/add/form/test-recipe') {
       return Response.json({ code: 0, data: recipeForm });
@@ -210,7 +211,8 @@ test('optional metadata lookup failures do not prevent or duplicate successful w
       throw new Error('Metadata unavailable');
     }
     if (url.pathname === '/user/meal/add/form/test-recipe') return Response.json({ code: 0, data: recipeForm });
-    if (url.pathname.includes('/form/')) return Response.json({ code: 0, data: { guid: 'test-item' } });
+    if (url.pathname.includes('/form/')) return Response.json({ code: 0, data: { guid: 'test-item',
+      unitOptions: [{ id: GRAM_UNIT, title: '1 g', multiplier: null }] } });
     assert.ok(['/user/foodstuff/add', '/user/meal/add'].includes(url.pathname));
     assert.equal(init?.method, 'POST');
     writes.push(JSON.parse(String(init.body)));
@@ -668,4 +670,39 @@ test('MCP cancellation reaches an in-flight API read and prevents a following wr
     await Promise.race([observed, new Promise((_, reject) => { deadline = setTimeout(() => reject(new Error('Cancellation did not reach the API request')), 1000); })]);
   } finally { clearTimeout(deadline); }
   assert.ok(!requests.includes('/user/activity/add'));
+});
+
+test('drinks use millilitres for portions, nutrition, previews and writes while explicit portions remain intact', async t => {
+  const ml = '0000000000000002';
+  const writes: Record<string, unknown>[] = [];
+  const { client } = await connectTools(t, (url, init) => {
+    if (url.pathname === '/foodstuff/detail/form/water') return Response.json({ code: 0, data: {
+      guid: 'water', title: 'Water', unitGuid: 'glass', multiplier: 1,
+      unitOptions: [{ id: 'glass', title: 'glass (250 ml)', multiplier: 250 }, { id: ml, title: '1 ml', multiplier: null }],
+    } });
+    if (url.pathname.startsWith('/foodstuff/detail/water/')) {
+      assert.ok(url.pathname.endsWith('/' + ml) || url.pathname.endsWith('/glass'));
+      return Response.json({ code: 0, data: { foodstuff: { title: 'Water', energy: 0 } } });
+    }
+    assert.equal(url.pathname, '/user/foodstuff/add');
+    writes.push(JSON.parse(String(init?.body)));
+    return Response.json({ code: 0 });
+  });
+  const portions = await client.callTool({ name: 'get_food_portions', arguments: { food_id: 'water' } });
+  const output = JSON.parse((portions.content as { text: string }[])[0]!.text);
+  assert.equal(output.base_unit_id, ml);
+  assert.equal(output.grams_unit_id, undefined);
+  assert.ok(!(await client.callTool({ name: 'get_food_nutrition', arguments: { food_id: 'water', amount: 500 } })).isError);
+  for (const dry_run of [true, false]) {
+    const result = await client.callTool({ name: 'log_food', arguments: { food_id: 'water', amount: 500, meal: '3', dry_run } });
+    assert.ok(!result.isError, JSON.stringify(result.content));
+    assert.equal(writes.length, dry_run ? 0 : 1);
+  }
+  assert.equal(writes[0]?.unitGuid, ml);
+  assert.equal(writes[0]?.multiplier, 500);
+  assert.ok(!(await client.callTool({ name: 'log_food', arguments: {
+    food_id: 'water', amount: 2, unit_id: 'glass', meal: '3',
+  } })).isError);
+  assert.equal(writes[1]?.unitGuid, 'glass');
+  assert.equal(writes[1]?.multiplier, 2);
 });

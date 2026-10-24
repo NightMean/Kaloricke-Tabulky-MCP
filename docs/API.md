@@ -26,6 +26,13 @@ Raw statistics retain their upstream units and absent values.
 
 ## Diary entries
 
+Food quantities default to each food's base unit: grams for solids, millilitres
+for drinks. Discover it from the detail form's `unitOptions`; `unitGuid` is the
+preferred portion and may instead mean a glass or piece. Nutrition, previews
+and writes use the same resolved unit. Explicit portion units remain unchanged.
+`get_food_portions` returns `base_unit_id`; `grams_unit_id` is retained only when
+grams are actually offered. This follows [upstream PR #3](https://github.com/stany9g/kt-mcp/pull/3).
+
 Implementation: `src/kt/diary.ts`, `src/mcp/diary-tools.ts`.
 
 | Route (before `?format=json`) | Method and contract |
