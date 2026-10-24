@@ -1,6 +1,7 @@
 {
   "name": "kaloricke-tabulky-mcp",
   "version": "0.1.0",
+  "private": true,
   "license": "MIT",
   "type": "module",
   "description": "MCP server exposing kaloricketabulky.cz food logging to AI agents",
@@ -24,9 +25,6 @@
     "docs/*.md",
     ".env.example"
   ],
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
     "build": "tsc",
     "build:release": "tsc -p tsconfig.release.json",
