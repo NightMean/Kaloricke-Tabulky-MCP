@@ -1,5 +1,6 @@
 import { assertCzechDate, KtError } from './client.js';
 import { record, records, type ApiRecord, type ApiRequest } from './api.js';
+import { parsePeriodAnalysis, type PeriodAnalysis } from './period-analysis.js';
 
 export const STATISTIC_METRICS = ['energy', 'nutrients', 'drink', 'weight', 'optional'] as const;
 export type StatisticMetric = typeof STATISTIC_METRICS[number];
@@ -13,6 +14,11 @@ export function assertDateRange(from: string, to: string): void {
 
 export class StatisticsApi {
   constructor(private readonly request: ApiRequest) {}
+
+  async analysis(from: string, to: string): Promise<PeriodAnalysis> {
+    assertDateRange(from, to);
+    return parsePeriodAnalysis(await this.request(`/statistic/analysis/graph/${from}/${to}/get?format=json`), from, to);
+  }
 
   async range(metric: StatisticMetric, from: string, to: string): Promise<ApiRecord | ApiRecord[]> {
     assertDateRange(from, to);

@@ -38,6 +38,7 @@ Implementation: `src/kt/diary.ts`, `src/mcp/diary-tools.ts`.
 | Route (before `?format=json`) | Method and contract |
 | --- | --- |
 | `/user/diary/{date}/get` | GET: meal slots, food/recipe entry IDs, activities and notes. |
+| `/user/diary/filled-out` | GET: current calendar window of recorded days and colour classes. |
 | `/user/diary/foodstuff/unit/form/{id}` | GET: `diaryGuid`, `multiplier`, `unitGuid`, `unitOptions`. |
 | `/user/diary/foodstuff/unit/edit` | POST the form with an absolute `multiplier` and offered `unitGuid`. |
 | `/user/diary/{foodstuff\|activity}/delete/{id}` | GET mutation: delete a logged entry, not its saved recipe. |
@@ -54,6 +55,14 @@ retried after an uncertain result. Inspect the destination first.
 Unlike other diary writes, the copy DTO expects a serialized Date, not the
 `dd.MM.yyyy` input string. The client converts it using the Czech timezone,
 including daylight saving time. Notes are excluded from entry copies.
+
+Normalized reads are implemented in `src/kt/diary-reads.ts`, following
+[upstream PR #2](https://github.com/stany9g/kt-mcp/pull/2). Food and recipe row
+IDs remain separate from database IDs. Meal/day totals are calculated from
+entries because upstream `*Total` fields may be zero; missing values remain
+null. Calendar dates are epoch milliseconds rendered in `Europe/Prague`, and
+`cc-`/`calendar-` colour prefixes are removed. The dated `filled-out/{date}`
+variant ignores its date, so it is not exposed as historical enumeration.
 
 ## Recipes
 
@@ -93,6 +102,14 @@ limit requires 7 MiB HTTP/proxy JSON limits. Other JSON endpoints stay at 1 MiB.
 series, not one object. `get_weight_history` retains its older monthly summary
 contract. Tips use `/statistic/analysis/tips/{from}/{to}/get?top=true`; streak
 uses `/user/streak?date=yyyy-MM-dd` and returns an integer.
+
+Period analysis GETs `/statistic/analysis/graph/{from}/{to}/get`; its normalized
+model lives in `src/kt/period-analysis.ts`. Averages include every day in the
+inclusive range, including empty days. `recordsMissing` is returned as
+`someDaysWithoutRecords` (null when absent). Food/category contributions use
+rendered `valueString` quantities and `count` strings such as `12x`. Rankings
+are bounded by the MCP `top` parameter; categories are opt-in. Raw statistics
+and normalized analysis remain separate tools with their existing units.
 
 `src/kt/activities.ts` searches `/autocomplete/activity`, reads
 `/user/activity/add/form/{id}`, and POSTs the form to `/user/activity/add`.

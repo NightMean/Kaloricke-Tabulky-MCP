@@ -75,7 +75,7 @@ jobs:
           ], env: { KT_EMAIL: 'fixture@example.invalid', KT_PASSWORD: 'fixture-password' } });
           try {
             await client.connect(transport);
-            assert.equal((await client.listTools()).tools.length, 45);
+            assert.equal((await client.listTools()).tools.length, 48);
           } finally { await client.close(); }
           JS
 
@@ -148,7 +148,7 @@ jobs:
           - Self-hosting: Docker Compose uses the public GHCR image with the latest stable tag by default.
 
           ## Included
-          - The same 45 diary, recipe, activity and nutrition tools over native stdio and OAuth-protected HTTP.
+          - The same 48 diary, recipe, activity and nutrition tools over native stdio and OAuth-protected HTTP.
           - Compiled CLI package, multi-platform Docker images and security-patched runtime dependencies.
 
           See the README and setup guides for credentials and client configuration.

@@ -1,5 +1,6 @@
 import { assertCzechDate, type MealId, KtError } from './client.js';
 import { apiId, positive, record, records, type ApiRecord, type ApiRequest } from './api.js';
+import { parseDiaryDay, parseLoggedDays, type DiaryDay, type LoggedDay } from './diary-reads.js';
 
 export type EntryKind = 'food' | 'activity';
 export interface Diary {
@@ -26,6 +27,15 @@ export function diaryCopyTimestamp(date: string): string {
 /** Diary IDs are distinct from database food IDs and saved recipe IDs. */
 export class DiaryApi {
   constructor(private readonly request: ApiRequest) {}
+
+  async entries(date: string): Promise<DiaryDay> {
+    return parseDiaryDay((await this.get(date)).raw, date);
+  }
+
+  async loggedDays(): Promise<LoggedDay[]> {
+    // The dated filled-out route ignores its date and returns the current window too.
+    return parseLoggedDays(await this.request('/user/diary/filled-out?format=json'));
+  }
 
   async get(date: string): Promise<Diary> {
     assertCzechDate(date);

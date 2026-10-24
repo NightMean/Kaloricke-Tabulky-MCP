@@ -87,7 +87,7 @@ Výchozí hodnoty a komentáře ke konfiguraci jsou v [`.env.example`](.env.exam
 
 ## Nástroje
 
-45 nástrojů pokrývá vyhledávání potravin a porcí, položky jídelníčku a poznámky, recepty, aktivity, statistiky, hmotnost a míry, oblíbené položky, šablony a exporty. Agent jejich schémata a pokyny k použití získá přes MCP.
+48 nástrojů pokrývá vyhledávání potravin a porcí, položky jídelníčku a poznámky, recepty, aktivity, statistiky, hmotnost a míry, oblíbené položky, šablony a exporty. Agent jejich schémata a pokyny k použití získá přes MCP.
 
 [Úplný přehled nástrojů](docs/TOOLS.md) obsahuje názvy, chování náhledů a význam množství; [API kontrakty](docs/API.md) popisují implementační podrobnosti.
 

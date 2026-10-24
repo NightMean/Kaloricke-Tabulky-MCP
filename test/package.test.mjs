@@ -65,7 +65,7 @@ test('packed production package runs without source or development dependencies'
     client = new Client({ name: 'package-acceptance', version: '0.0.0' });
     await client.connect(transport);
     assert.equal(client.getServerVersion().version, manifest.version);
-    assert.equal((await client.listTools()).tools.length, 45);
+    assert.equal((await client.listTools()).tools.length, 48);
     await client.ping();
     await client.close();
     assert.equal(diagnostics, '', 'stdio must start without diagnostics or a banner');

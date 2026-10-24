@@ -706,3 +706,62 @@ test('drinks use millilitres for portions, nutrition, previews and writes while 
   assert.equal(writes[1]?.unitGuid, 'glass');
   assert.equal(writes[1]?.multiplier, 2);
 });
+
+test('normalized diary and calendar reads retain raw diary compatibility and use authenticated read routes', async t => {
+  const raw = { ...detailedDiary, energyUnit: 'kcal', energyTotal: 0, times: [
+    { id: '1', title: 'Breakfast', foodstuff: [{ id: 'row', guidType: 'food', energy: '125,5', protein: 0 }] },
+    { id: '2', title: 'Snack', foodstuff: [] },
+  ] };
+  const { client, requests } = await connectTools(t, (url, init) => {
+    assert.equal(init?.method ?? 'GET', 'GET');
+    if (url.pathname === '/user/diary/24.10.2026/get') return Response.json({ code: 0, data: raw });
+    assert.equal(url.pathname, '/user/diary/filled-out');
+    return Response.json({ code: 0, data: [{ date: 1789768800000, colorClass: 'cc-good' }] });
+  });
+  const decode = (result: any) => { assert.ok(!result.isError); return JSON.parse(result.content[0].text); };
+  const original = decode(await client.callTool({ name: 'get_diary', arguments: { date: '24.10.2026' } }));
+  assert.deepEqual(original.diary, raw);
+  const day = decode(await client.callTool({ name: 'get_day_entries', arguments: { date: '24.10.2026' } }));
+  assert.equal(day.totals.energy, 125.5);
+  assert.equal(day.totals.protein, 0);
+  assert.equal(day.meals.length, 1);
+  assert.equal(day.meals[0].entries[0].entryId, 'row');
+  const calendar = decode(await client.callTool({ name: 'get_logged_days', arguments: {} }));
+  assert.deepEqual(calendar.days, [{ date: '19.09.2026', status: 'good' }]);
+  assert.match(calendar.window, /roughly the last month/);
+  assert.deepEqual(requests, ['/login/create', '/user/diary/24.10.2026/get', '/user/diary/24.10.2026/get', '/user/diary/filled-out']);
+});
+
+test('period analysis limits contributors, supports categories and retains the missing-day warning', async t => {
+  const groups = [{ title: 'Energy', items: Array.from({ length: 8 }, (_, i) => ({ title: `Food ${i}`, valueString: '10 kcal', count: '2x' })) }];
+  const { client } = await connectTools(t, url => {
+    assert.equal(url.pathname, '/statistic/analysis/graph/18.09.2026/19.09.2026/get');
+    return Response.json({ code: 0, data: { recordsMissing: true, energy: { value: 1458 }, list: [],
+      totalValueInfluence: groups, totalValueInfluenceCategory: groups } });
+  });
+  for (const [extra, foods, categories] of [[{}, 5, 0], [{ top: 1, by_category: true }, 1, 1], [{ top: 0, by_category: true }, 0, 0]] as const) {
+    const result = await client.callTool({ name: 'get_period_analysis', arguments: { from: '18.09.2026', to: '19.09.2026', ...extra } });
+    assert.ok(!result.isError, JSON.stringify(result.content));
+    const output = JSON.parse((result.content as { text: string }[])[0]!.text);
+    assert.equal(output.topFoods[0]?.items.length ?? 0, foods);
+    assert.equal(output.topCategories[0]?.items.length ?? 0, categories);
+    assert.equal(output.days, 2);
+    assert.equal(output.someDaysWithoutRecords, true);
+    assert.equal(output.energy.perDay, 1458);
+  }
+});
+
+test('new read tools reject invalid inputs before requests and report malformed upstream responses', async t => {
+  const { client, requests } = await connectTools(t, () => Response.json({ code: 0, data: {} }));
+  for (const request of [
+    { name: 'get_day_entries', arguments: { date: '31.02.2026' } },
+    { name: 'get_period_analysis', arguments: { from: '25.10.2026', to: '24.10.2026' } },
+    { name: 'get_period_analysis', arguments: { from: '24.10.2026', to: '24.10.2026', top: 11 } },
+  ]) assert.equal((await client.callTool(request)).isError, true);
+  assert.deepEqual(requests, []);
+  for (const request of [
+    { name: 'get_day_entries', arguments: { date: '24.10.2026' } },
+    { name: 'get_logged_days', arguments: {} },
+    { name: 'get_period_analysis', arguments: { from: '24.10.2026', to: '24.10.2026' } },
+  ]) assert.equal((await client.callTool(request)).isError, true);
+});

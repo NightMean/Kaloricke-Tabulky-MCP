@@ -1,9 +1,24 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { KtClient } from '../kt/client.js';
+import { type KtClient, todayCzech } from '../kt/client.js';
 import { dryRun, entryId, guard, json, mealIds, mutation, readOnly, requiredDate } from './shared.js';
 
 export function registerDiaryTools(server: McpServer, kt: KtClient): void {
+  server.registerTool('get_day_entries', {
+    description: 'Read a day’s foods and recipes by meal, with diary entry IDs, food IDs, portions, energy and macros. Omit date for today. Totals are summed from entries because the site’s day totals may be zero. For targets use get_day_summary; for unmodified payloads use get_diary.',
+    inputSchema: { date: requiredDate.optional() }, annotations: readOnly,
+  }, guard('get_day_entries', async ({ date }) => {
+    const day = await kt.diary.entries(date ?? todayCzech());
+    return json({ ...day, meals: day.meals.filter(meal => meal.entries.length || meal.notes.length),
+      note: 'Totals are summed from available entry values; missing values remain null. Use get_day_summary for the site’s totals and targets.' });
+  }));
+  server.registerTool('get_logged_days', {
+    description: 'List days with diary records and the site’s colour rating. Covers the site’s current window, roughly the last month; it cannot enumerate all history. Read older dates with get_day_entries or use get_period_analysis for a range.',
+    inputSchema: {}, annotations: readOnly,
+  }, guard('get_logged_days', async () => {
+    const days = await kt.diary.loggedDays();
+    return json({ days, count: days.length, window: 'The site’s current window, roughly the last month; older dates remain readable individually.' });
+  }));
   server.registerTool('add_diary_note', {
     description: 'Add a text note to a diary meal slot for a date. Supports dry_run. After an uncertain failure, inspect notes with get_diary before retrying.',
     inputSchema: { date: requiredDate, meal: z.enum(mealIds), text: z.string().min(1).max(10000), dry_run: dryRun }, annotations: mutation,

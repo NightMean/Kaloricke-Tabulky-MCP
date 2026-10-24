@@ -4,7 +4,7 @@ Install Node.js 22 or newer. Your MCP client can launch the compiled GitHub
 release with `npx`, without Docker, a source checkout, a build, or an npm account.
 The archive is hosted on GitHub Releases; it is not published to the npm registry.
 
-The process provides the same 45 tools as HTTP, opens no listening port, and
+The process provides the same 48 tools as HTTP, opens no listening port, and
 creates no OAuth state. It needs no public hostname, tunnel, or MCP OAuth setup.
 KT account authentication happens when a tool needs it.
 

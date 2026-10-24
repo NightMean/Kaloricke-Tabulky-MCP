@@ -328,7 +328,7 @@ export function registerTools(server: McpServer, kt: KtClient): void {
     {
       title: 'Get a day summary',
       description:
-        'Read back totals and nutritional overview from the diary for one day — use this when the user asks what they have eaten, how many calories they have left, or how a day went. ' +
+        'Read back totals and nutritional overview from the diary for one day — use this when the user asks how many calories they have left or how a day went. Use get_day_entries for what they actually ate. ' +
         'Returns structured overview (calories current/target/remaining, macros, water) alongside raw summary details.',
       inputSchema: {
         date: dateSchema,

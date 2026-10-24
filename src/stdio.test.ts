@@ -27,6 +27,12 @@ test('stdio subprocess discovers tools, authenticates upstream, recovers and can
     if (req.url === '/login/create?format=json') {
       res.setHeader('Set-Cookie', 'JSESSIONID=stdio-fixture; Path=/');
       res.end(JSON.stringify({ code: 0, data: {} }));
+    } else if (req.url === '/user/diary/24.10.2026/get?format=json') {
+      res.end(JSON.stringify({ code: 0, data: { times: [{ id: '1', foodstuff: [{ id: 'row', energy: 125 }] }], activities: [] } }));
+    } else if (req.url === '/user/diary/filled-out?format=json') {
+      res.end(JSON.stringify({ code: 0, data: [{ date: 1789768800000, colorClass: 'cc-good' }] }));
+    } else if (req.url === '/statistic/analysis/graph/24.10.2026/24.10.2026/get?format=json') {
+      res.end(JSON.stringify({ code: 0, data: { recordsMissing: false, energy: { value: 125 }, list: [] } }));
     } else if (req.url === '/user/settings/profile/form?format=json') {
       assert.equal(req.headers.cookie, 'JSESSIONID=stdio-fixture');
       if (hold) {
@@ -58,12 +64,17 @@ test('stdio subprocess discovers tools, authenticates upstream, recovers and can
   await client.connect(transport);
   assert.match(client.getInstructions()!, /natural portion unit/);
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 45);
-  assert.equal(new Set(tools.map(tool => tool.name)).size, 45);
+  assert.equal(tools.length, 48);
+  assert.equal(new Set(tools.map(tool => tool.name)).size, 48);
   const result = await client.callTool({ name: 'get_profile', arguments: {} });
   assert.notEqual(result.isError, true);
   assert.deepEqual(JSON.parse((result.content as { text: string }[])[0]!.text), { profile: { height: 180, lang: 'sk' } });
   assert.deepEqual(paths, ['/login/create?format=json', '/user/settings/profile/form?format=json']);
+  for (const request of [
+    { name: 'get_day_entries', arguments: { date: '24.10.2026' } },
+    { name: 'get_logged_days', arguments: {} },
+    { name: 'get_period_analysis', arguments: { from: '24.10.2026', to: '24.10.2026' } },
+  ]) assert.notEqual((await client.callTool(request)).isError, true);
   status = 503;
   const failure = await client.callTool({ name: 'get_profile', arguments: {} });
   assert.equal(failure.isError, true);

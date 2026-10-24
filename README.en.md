@@ -87,7 +87,7 @@ Full configuration defaults and comments are in [`.env.example`](.env.example) a
 
 ## Tools
 
-The 45 tools cover food search and portions, diary entries and notes, recipes, activities, statistics, weight and measurements, favorites, templates, and exports. Your agent discovers their schemas and usage hints through MCP.
+The 48 tools cover food search and portions, diary entries and notes, recipes, activities, statistics, weight and measurements, favorites, templates, and exports. Your agent discovers their schemas and usage hints through MCP.
 
 See the [full tool reference](docs/TOOLS.md) for names, preview behavior, and quantity semantics, or [API contracts](docs/API.md) for implementation details.
 

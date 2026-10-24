@@ -9,6 +9,8 @@
 | `log_food` | Write an eating record into the diary (supports `dry_run: true` to preview macros without logging). |
 | `get_day_summary` | Read back a day's totals and structured overview (current/target/remaining calories, macros, water). |
 | `get_diary` | Read food/recipe entries, IDs, meal slots, activities and notes. |
+| `get_day_entries` | Read normalized entries, portions and macros by meal, with totals calculated from the entries. |
+| `get_logged_days` | List recorded days and their colour ratings in the site's current calendar window. |
 | `get_diary_food_units` | Read current quantity and offered units before editing. |
 | `edit_diary_food` | Replace a food entry quantity; supports `dry_run`. |
 | `delete_diary_entry` | Delete one logged food/recipe or activity; supports `dry_run`. |
@@ -22,6 +24,7 @@
 | `record_weight` | Log user body weight (kg) for a given date (supports `dry_run: true`). |
 | `get_weight_history` | Retrieve recent body weight entries from monthly tracking statistics. |
 | `get_statistics` | Read energy, nutrient, water, weight or custom measurement series for an explicit `from`/`to` range. |
+| `get_period_analysis` | Read per-day averages against targets and the foods contributing most to each nutrient. |
 | `get_tracking_tips` | Read the website's tips for a date range. |
 | `get_tracking_streak` | Read tracking streak information for a date. |
 | `create_meal` | Save a recipe built from existing foods. |
@@ -43,6 +46,21 @@
 | `delete_measurement_tracker` | Delete a non-weight tracker and all its history; supports `dry_run`. |
 | `export_diary` | Download diary XLS/PDF or analysis PDF as an embedded MCP document, maximum 5 MiB. |
 
+
+`get_day_entries` defaults to today and returns normalized entry IDs, database
+food/recipe IDs, quantities, nutrients, activities and notes. Its meal and day
+totals are summed from available food-entry values, because the upstream totals
+can be zero. Missing numbers remain `null`; activity energy is not subtracted.
+`get_diary` keeps the unmodified payload for correction tools and diagnostics.
+
+`get_logged_days` covers the site's current window, roughly the last month;
+it does not enumerate all history. Older individual dates remain readable.
+
+`get_period_analysis` uses inclusive `from` and `to` dates. Its averages include
+empty days: `someDaysWithoutRecords=true` warns that they lower the averages;
+`null` means the upstream response omitted this indicator. `top` defaults to 5
+foods per nutrient (0–10; 0 omits rankings). Set `by_category=true` to include
+category rankings. Values retain the site's units and daily averaging basis.
 
 `get_day_summary` keeps the original statistics response in `summary` and its
 `raw` alias. The `overview` combines energy from statistics with water and macro
