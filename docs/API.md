@@ -120,8 +120,8 @@ Declared and streamed downloads are bounded to 5 MiB. `export_diary` embeds
 bytes in an MCP resource without persisting a file or publishing a URL.
 
 Run `npm test` from the repository root. It includes deterministic client/MCP
-contract tests and a real local OAuth/HTTP process test with isolated fixture
-credentials/state. It never writes to a KT account. Live integration requires
+contract tests, real stdio subprocess tests and a local OAuth/HTTP process test
+with isolated fixture credentials/state. It never writes to a KT account. Live integration requires
 separately configured credentials and temporary records with verified cleanup.
 
 The contracts above were checked against the Slovak site's first-party

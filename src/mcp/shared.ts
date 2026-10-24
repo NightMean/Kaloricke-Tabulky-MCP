@@ -25,7 +25,7 @@ export function guard<Args, Result extends CallToolResult>(name: string, fn: (ar
         extra.signal.throwIfAborted();
         return fn(args);
       }) : fn(args));
-      console.log(`[tool] ${name} -> ok`);
+      console.error(`[tool] ${name} -> ok`);
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

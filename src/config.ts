@@ -3,10 +3,13 @@
  * missing secret fails the container immediately rather than at first use.
  */
 
-export interface Config {
+export interface KtConfig {
   ktEmail: string;
   ktPassword: string;
   ktDomain: string;
+}
+
+export interface Config extends KtConfig {
   mcpAuthPassword: string;
   publicUrl: URL;
   port: number;
@@ -19,6 +22,15 @@ function required(name: string): string {
     throw new Error(`Missing required environment variable ${name}`);
   }
   return value;
+}
+
+/** Local stdio needs only the upstream account, independently of HTTP/OAuth. */
+export function loadKtConfig(): KtConfig {
+  return {
+    ktEmail: required('KT_EMAIL'),
+    ktPassword: required('KT_PASSWORD'),
+    ktDomain: process.env['KT_DOMAIN']?.trim() || process.env['KT_BASE_URL']?.trim() || 'kaloricketabulky.cz',
+  };
 }
 
 export function loadConfig(): Config {
@@ -43,9 +55,7 @@ export function loadConfig(): Config {
   }
 
   return {
-    ktEmail: required('KT_EMAIL'),
-    ktPassword: required('KT_PASSWORD'),
-    ktDomain: process.env['KT_DOMAIN']?.trim() || process.env['KT_BASE_URL']?.trim() || 'kaloricketabulky.cz',
+    ...loadKtConfig(),
     mcpAuthPassword,
     publicUrl,
     port,

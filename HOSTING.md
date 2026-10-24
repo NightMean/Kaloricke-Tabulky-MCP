@@ -1,5 +1,16 @@
 # Kde to provozovat / Where to run it
 
+HTTP režim běží jako samostatná služba. Pro lokální spuštění přímo z Hermes
+nebo jiného MCP klienta použijte [stdio](docs/LOCAL-MCP.md) (anglicky); Docker,
+veřejná adresa ani OAuth nejsou potřeba. Níže uvedená doporučení se týkají
+dostupnosti samostatně provozovaného HTTP endpointu.
+
+HTTP mode runs as a separate service. For a local process launched directly by
+Hermes or another MCP client, use [stdio](docs/LOCAL-MCP.md); Docker, a public
+hostname and OAuth are unnecessary. The availability guidance below concerns
+the separately hosted HTTP endpoint. In either mode, scheduled tasks require
+the relevant machines to be awake when they run.
+
 **🇨🇿 Česky** (English below)
 
 ## ⚠️ Server musí běžet 24/7

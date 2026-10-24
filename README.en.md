@@ -14,6 +14,11 @@
 
 A self-hosted [MCP](https://modelcontextprotocol.io) server that connects an AI agent to your [kaloricketabulky.cz](https://www.kaloricketabulky.cz) and [kaloricketabulky.sk](https://www.kaloricketabulky.sk) food diary.
 
+Run it locally as a client-managed **stdio subprocess**, or host a **Streamable
+HTTP endpoint with OAuth** for remote clients. Both modes expose the same tools.
+For direct Hermes integration without Docker or a public endpoint, see
+[Local MCP with stdio](docs/LOCAL-MCP.md).
+
 You say *"I ate 3 eggs and a banana"* — the agent searches the food database, picks the right portion unit, and writes the entries into your real diary. The official app stays the source of truth, so premium features keep working.
 
 Supports both the Czech domain ([kaloricketabulky.cz](https://www.kaloricketabulky.cz)) and Slovak domain ([kaloricketabulky.sk](https://www.kaloricketabulky.sk)) via `KT_DOMAIN=kaloricketabulky.sk`.
@@ -37,10 +42,13 @@ Once connected, food logging stops being a chore of tapping through search scree
 
 ### Supported Clients
 
-The server communicates via standard MCP over HTTPS with OAuth 2.1 and is tested with:
+The server supports standard MCP over stdio and Streamable HTTP. Remote HTTP
+connections use OAuth 2.1. Client options include:
+
+- **Hermes Agent** and other local stdio clients: [command and configuration](docs/LOCAL-MCP.md).
 - **Claude** (Desktop, mobile app, and web via custom connector)
 - **Cursor**, **Windsurf**, and other AI coding environments supporting remote MCP servers
-- Any MCP-compliant client supporting remote HTTP/SSE transport with OAuth 2.1
+- Any MCP-compliant client supporting stdio, or Streamable HTTP with OAuth 2.1
 
 ## Tools
 
@@ -166,7 +174,10 @@ Two credentials, doing different jobs:
 | `MCP_AUTH_PASSWORD` | Who may connect this server to an agent. You type it once in a browser during the OAuth consent step. |
 | `KT_PASSWORD` | The [kaloricketabulky.cz](https://www.kaloricketabulky.cz) account the tools write to. Never leaves the server. |
 
-### What the passphrase protects
+These two credentials apply to HTTP mode. Local stdio uses only the KT account
+credentials, passed through the subprocess environment or Node's `--env-file`.
+
+### What the HTTP passphrase protects
 
 `MCP_AUTH_PASSWORD` is the only way to obtain a token. Every request to `/mcp`
 requires a valid bearer token, and tokens are minted solely by the consent form
@@ -194,7 +205,7 @@ and because client registration is open, a phishing link to the consent page
 could capture the passphrase if you typed it there — check the client name shown
 on the form before authorizing.
 
-## Local development
+## Local development (HTTP)
 
 ```bash
 npm install
@@ -209,6 +220,9 @@ PUBLIC_URL=https://localhost:8092 node dist/index.js
 `GET /healthz` returns the resulting public MCP endpoint — the fastest way to confirm that `PUBLIC_URL` is what you think it is.
 
 ## Self-hosting
+
+This section describes HTTP mode. For a client-managed local process, use
+[stdio](docs/LOCAL-MCP.md) instead.
 
 > ⚠️ The server should be always-on — sleeping PCs will cause scheduled logs to
 > fail. See [HOSTING.md](HOSTING.md) for full context and trade-offs.

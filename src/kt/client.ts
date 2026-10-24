@@ -315,7 +315,7 @@ export class KtClient {
   private loginInFlight: Promise<void> | null = null;
   readonly baseUrl: string;
 
-  constructor(private readonly credentials: KtCredentials) {
+  constructor(private readonly credentials: KtCredentials, private readonly shutdownSignal?: AbortSignal) {
     this.baseUrl = normalizeKtBaseUrl(credentials.baseUrl ?? credentials.domain);
   }
 
@@ -333,12 +333,16 @@ export class KtClient {
     if (init.body !== undefined && !multipart) headers['Content-Type'] = 'application/json';
     const operationSignal = apiOperation.getStore();
     operationSignal?.throwIfAborted();
+    // Process shutdown also cancels shared login, which outlives individual tools.
+    const signals = [AbortSignal.timeout(20_000)];
+    if (operationSignal) signals.push(operationSignal);
+    if (this.shutdownSignal) signals.push(this.shutdownSignal);
 
     const response = await fetch(this.baseUrl + path, {
       method: init.method ?? 'GET',
       headers,
       body: multipart ? init.body as FormData : init.body === undefined ? undefined : JSON.stringify(init.body),
-      signal: operationSignal ? AbortSignal.any([operationSignal, AbortSignal.timeout(20_000)]) : AbortSignal.timeout(20_000),
+      signal: AbortSignal.any(signals),
       redirect: 'manual',
     });
 

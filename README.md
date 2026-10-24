@@ -14,6 +14,11 @@
 
 Self-hosted [MCP](https://modelcontextprotocol.io) server, který propojí AI agenta s vaším jídelníčkem na [kaloricketabulky.cz](https://www.kaloricketabulky.cz) i [kaloricketabulky.sk](https://www.kaloricketabulky.sk).
 
+Spusťte jej lokálně jako **stdio proces spravovaný klientem**, nebo provozujte
+**Streamable HTTP endpoint s OAuth** pro vzdálené klienty. Oba režimy poskytují
+stejné nástroje. Přímé připojení k Hermes bez Dockeru a veřejné adresy popisuje
+[návod pro lokální stdio](docs/LOCAL-MCP.md) (anglicky).
+
 Řeknete *„snědl jsem 3 vejce a banán"* (nebo slovensky *„zjedol som 3 vajcia a banán"*) — agent prohledá databázi potravin, vybere správnou porci a zapíše záznamy do vašeho skutečného jídelníčku. Oficiální aplikace zůstává zdrojem pravdy, takže prémiové funkce fungují dál.
 
 Podporuje jak českou doménu ([kaloricketabulky.cz](https://www.kaloricketabulky.cz)), tak slovenskou ([kaloricketabulky.sk](https://www.kaloricketabulky.sk)) přes proměnnou `KT_DOMAIN=kaloricketabulky.sk`.
@@ -37,10 +42,13 @@ Jakmile je agent připojený, přestane být zapisování jídel otravným prokl
 
 ### Podporovaní klienti
 
-Server komunikuje standardním protokolem MCP přes HTTPS s OAuth 2.1 a je otestován s:
+Server podporuje standardní MCP přes stdio i Streamable HTTP. Vzdálené HTTP
+připojení používá OAuth 2.1. Možnosti připojení:
+
+- **Hermes Agent** a další lokální stdio klienti: [příkaz a konfigurace](docs/LOCAL-MCP.md).
 - **Claude** (Desktop, mobilní aplikace i web přes custom connector)
 - **Cursor**, **Windsurf** a další vývojová prostředí s podporou vzdálených MCP serverů
-- Jakýkoli MCP klient podporující vzdálený transport (SSE/HTTP) s OAuth 2.1
+- Jakýkoli MCP klient podporující stdio, nebo Streamable HTTP s OAuth 2.1
 
 ## Nástroje
 
@@ -163,7 +171,10 @@ Dvě hesla, každé hlídá něco jiného:
 | `MCP_AUTH_PASSWORD` | Kdo smí tento server připojit k agentovi. Zadáváte ho jednou v prohlížeči při OAuth souhlasu. |
 | `KT_PASSWORD` | Účet na [kaloricketabulky.cz](https://www.kaloricketabulky.cz), do kterého nástroje zapisují. Nikdy neopouští server. |
 
-### Co se stane při připojení
+Tato dvě hesla se týkají HTTP režimu. Lokální stdio vyžaduje pouze přihlašovací
+údaje ke KT z prostředí procesu nebo souboru načteného přes Node `--env-file`.
+
+### Co se stane při HTTP připojení
 
 Žádný token ručně nevytváříte ani nekopírujete — OAuth to udělá za vás:
 
@@ -183,7 +194,7 @@ Protože si každý provozuje vlastní instanci, každý token patří jen jemu:
 server zná jen váš jídelníček a tokeny vydává jen tomu, kdo zná vaši frázi.
 Mezi instalacemi se nesdílí nic a žádná centrální služba neexistuje.
 
-## Lokální vývoj
+## Lokální vývoj (HTTP)
 
 ```bash
 npm install
@@ -198,6 +209,9 @@ PUBLIC_URL=https://localhost:8092 node dist/index.js
 `GET /healthz` vrací výsledný veřejný MCP endpoint — nejrychlejší způsob, jak ověřit, že `PUBLIC_URL` je opravdu to, co si myslíte.
 
 ## Vlastní hosting
+
+Tato část popisuje HTTP režim. Pro lokální proces spravovaný klientem použijte
+[stdio](docs/LOCAL-MCP.md).
 
 > ⚠️ Server by měl běžet nepřetržitě — na uspávaném PC selžou naplánované
 > zápisy. Podrobnosti a doporučení v [HOSTING.md](HOSTING.md).
