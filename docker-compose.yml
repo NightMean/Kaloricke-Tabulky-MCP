@@ -3,6 +3,7 @@
 services:
   kt-mcp:
     image: ${KT_MCP_IMAGE:-kt-mcp:latest}
+    container_name: kaloricke-tabulky-mcp
     build: .
     environment:
       KT_EMAIL: ${KT_EMAIL}

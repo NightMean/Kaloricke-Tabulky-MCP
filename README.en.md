@@ -1,350 +1,121 @@
 <h1 align="center">Kaloricke-Tabulky-MCP</h1>
 
 <p align="center">
-  <a href="https://github.com/NightMean/Kaloricke-Tabulky-MCP/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen?style=flat-square" alt="Build Status" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License" /></a>
-  <img src="https://img.shields.io/badge/TypeScript-5.8-blue?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/MCP-1.6.0-orange?style=flat-square" alt="Model Context Protocol" />
-  <img src="https://img.shields.io/badge/Node-%3E%3D20-green?style=flat-square&logo=node.js&logoColor=white" alt="Node" />
+  <a href="package.json"><img src="https://img.shields.io/badge/Node.js-%3E%3D22-339933?style=flat-square" alt="Node.js 22+" /></a>
+  <a href="docs/LOCAL-MCP.md"><img src="https://img.shields.io/badge/MCP-stdio%20%7C%20HTTP-8A2BE2?style=flat-square" alt="MCP: stdio / HTTP" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT" /></a>
 </p>
 
-<p align="center">
-  <a href="README.md">🇨🇿 Česky</a> · <b>🇬🇧 English</b>
-</p>
+<p align="center"><a href="README.md">Česky</a> · <b>English</b></p>
 
-A self-hosted [MCP](https://modelcontextprotocol.io) server that connects an AI agent to your [kaloricketabulky.cz](https://www.kaloricketabulky.cz) and [kaloricketabulky.sk](https://www.kaloricketabulky.sk) food diary.
+Connect your AI assistant to your food diary on [kaloricketabulky.cz](https://www.kaloricketabulky.cz) or [kaloricketabulky.sk](https://www.kaloricketabulky.sk) through [MCP](https://modelcontextprotocol.io). Run it locally alongside your agent, or self-host an HTTP endpoint for remote access.
 
-Run it locally as a client-managed **stdio subprocess**, or host a **Streamable
-HTTP endpoint with OAuth** for remote clients. Both modes expose the same tools.
-For direct Hermes integration without Docker or a public endpoint, see
-[Local MCP with stdio](docs/LOCAL-MCP.md).
-
-You say *"I ate 3 eggs and a banana"* — the agent searches the food database, picks the right portion unit, and writes the entries into your real diary. The official app stays the source of truth, so premium features keep working.
-
-Supports both the Czech domain ([kaloricketabulky.cz](https://www.kaloricketabulky.cz)) and Slovak domain ([kaloricketabulky.sk](https://www.kaloricketabulky.sk)) via `KT_DOMAIN=kaloricketabulky.sk`.
-Both Docker Compose files pass this setting into the server. Alternatively,
-leave `KT_DOMAIN` unset or blank and set `KT_BASE_URL=https://www.kaloricketabulky.sk`.
-A nonblank `KT_DOMAIN` takes precedence; when neither is set, the Czech domain is used.
+You say *"I ate 3 eggs and a banana"* — the agent searches the food database, chooses the right portion units, and logs the entries in your diary.
 
 ## Features
 
-Once connected, food logging stops being a chore of tapping through search screens. Some patterns that work well in practice:
+- **Log food in natural portions.** Search by Czech/Slovak name or barcode and use pieces, servings, grams, or millilitres. Supported writes offer `dry_run` previews.
+- **Read and correct your diary.** Check calories, macros, and water; adjust, move, copy, or delete entries and add meal notes.
+- **Save and reuse recipes.** Create and edit recipes, attach images, and log half, whole, or multiple recipe quantities. Reuse days with saved templates.
+- **Track more than food.** Log activities, weight, and body measurements; read trends, favorites, and nutrition goals; export diary documents.
 
-- **Natural language logging.** "I had a rohlík with ham and two eggs for breakfast." The agent parses the text (or voice dictation transcribed by your client), searches the database, resolves natural portions (*kus (55 g)* instead of guessed grams), and logs each item into the right meal slot.
+Photo interpretation, voice input, and scheduled routines depend on your agent. It can use these MCP tools after interpreting an image or running a scheduled task.
 
-- **Automate your routine.** You drink two coffees with milk every day — why type it? If your agent supports scheduled tasks (Claude does), tell it once: *"Every day at 9:00, log two espressos with milk into my diary."* Your daily constants log themselves.
+## Installation
 
-- **Photograph your plate.** Send the agent a photo of your lunch and ask what's on it. It identifies the foods, estimates real gram amounts from the picture, tells you the calories — and logs it when you confirm. Estimates are estimates, but for mixed plates it beats not logging at all.
+### Option 1: Self-host for remote clients (recommended)
 
-- **Photograph a recipe.** Snap a recipe from a cookbook or a screenshot from the web and say *"save this as a meal"*. The agent reads the ingredients, finds each one in the database, and creates a reusable saved recipe — one entry to log next time you cook it. You can edit on the way in: *"swap the cream for white yogurt and halve the sugar."*
+**Recommended for stronger credential isolation.** When hosted outside the harness's accessible filesystem and process environment, your KT credentials stay on the server. The harness uses an OAuth token to access diary tools, so protect the token and the HTTP service. See [hosting and authentication details](HOSTING.md#authentication-and-architecture).
 
-- **Ask how your day is going.** "How many calories do I have left?" reads today's totals straight from the diary.
+Run the HTTP server on your server, NAS, or VPS with Docker Compose and an HTTPS reverse proxy. Cloudflare Tunnel is optional.
 
-### Supported Clients
+1. Download the Compose configuration and environment template:
 
-The server supports standard MCP over stdio and Streamable HTTP. Remote HTTP
-connections use OAuth 2.1. Client options include:
+   ```sh
+   git clone https://github.com/NightMean/Kaloricke-Tabulky-MCP.git
+   cd Kaloricke-Tabulky-MCP
+   cp .env.example .env
+   ```
 
-- **Hermes Agent** and other local stdio clients: [command and configuration](docs/LOCAL-MCP.md).
-- **Claude** (Desktop, mobile app, and web via custom connector)
-- **Cursor**, **Windsurf**, and other AI coding environments supporting remote MCP servers
-- Any MCP-compliant client supporting stdio, or Streamable HTTP with OAuth 2.1
+2. Set `KT_EMAIL`, `KT_PASSWORD`, `MCP_AUTH_PASSWORD` (at least 12 characters), and `PUBLIC_URL=https://<your-host>` in `.env`.
+
+3. Pull and start the server:
+
+   ```sh
+   docker compose -p kt-mcp --env-file .env pull
+   docker compose -p kt-mcp --env-file .env up -d --no-build
+   ```
+
+Point your HTTPS reverse proxy at `http://127.0.0.1:8092` on the Docker host. Connect your client to `https://<your-host>/mcp` and authorize it with `MCP_AUTH_PASSWORD`.
+
+[HOSTING.md](HOSTING.md) covers proxy configuration, the optional Cloudflare Tunnel stack, and recovery. `TUNNEL_TOKEN` is needed only when using Cloudflare Tunnel.
+
+> [!TIP]
+> **Multiple users:** run a separate server per KT account, each with its own credentials, OAuth state, passphrase, and endpoint. Clients connected to one server share the same diary. See [multiple users](HOSTING.md#multiple-users).
+
+### Option 2: Run directly with your agent
+
+> [!WARNING]
+> Local stdio provides less credential isolation: a harness with access to the subprocess environment or `.env` can read your KT email and password. Choose HTTP on a separate server for stronger credential isolation.
+
+Install Node.js 22 or newer, then follow the [local setup guide](docs/LOCAL-MCP.md) to launch the compiled GitHub release with `npx` and pass KT credentials in your client's `env` settings. No Docker, repository checkout, build, or npm account is needed; `.env` is optional.
+
+The client manages the process. No listening port, public hostname, tunnel, or MCP OAuth setup is needed. Protect the client configuration containing your credentials.
+
+### Clients
+
+| Client | Connection |
+|---|---|
+| **Codex** | Local stdio or remote HTTP with OAuth; [setup examples](docs/LOCAL-MCP.md#codex) |
+| **Claude** | Remote HTTP through a custom connector; local stdio where the client supports it |
+| **Hermes Agent** | Local stdio; [setup examples](docs/LOCAL-MCP.md#hermes-agent) |
+| **Cursor, Windsurf, and other MCP clients** | Use the command or HTTP/OAuth configuration supported by your client |
+
+## Configuration
+
+| Variable | Used by | Purpose |
+|---|---|---|
+| `KT_EMAIL`, `KT_PASSWORD` | Both modes | KT account credentials |
+| `KT_DOMAIN` | Both modes | `kaloricketabulky.cz` (default) or `kaloricketabulky.sk` |
+| `KT_BASE_URL` | Both modes | Alternative base URL when `KT_DOMAIN` is unset or blank |
+| `MCP_AUTH_PASSWORD` | HTTP | Consent passphrase, at least 12 characters |
+| `PUBLIC_URL` | HTTP | HTTPS origin advertised to clients |
+| `PORT`, `STATE_DIR` | HTTP | Listener port and persistent OAuth state location |
+| `MCP_HOSTNAME`, `TUNNEL_TOKEN` | Optional tunnel stack | nginx hostname and Cloudflare tunnel token |
+
+Full configuration defaults and comments are in [`.env.example`](.env.example) and [HOSTING.md](HOSTING.md).
 
 ## Tools
 
-<details>
-<summary><b>View available MCP tools</b></summary>
+The 45 tools cover food search and portions, diary entries and notes, recipes, activities, statistics, weight and measurements, favorites, templates, and exports. Your agent discovers their schemas and usage hints through MCP.
 
-| Tool | Purpose |
-|---|---|
-| `search_food` | Find foods by Czech/Slovak name or 13-digit EAN barcode. Returns the food id the other tools need. |
-| `get_food_portions` | List a food's natural portion units (`kus (55 g)`, `velký kus (60 g)`) so "3 eggs" logs as three pieces rather than an estimated weight. |
-| `get_food_nutrition` | Calories and macros for a quantity, scaled by the site itself. Read-only. |
-| `log_food` | Write an eating record into the diary (supports `dry_run: true` to preview macros without logging). |
-| `get_day_summary` | Read back a day's totals and structured overview (current/target/remaining calories, macros, water). |
-| `get_diary` | Read food/recipe entries, IDs, meal slots, activities and notes. |
-| `get_diary_food_units` | Read current quantity and offered units before editing. |
-| `edit_diary_food` | Replace a food entry quantity; supports `dry_run`. |
-| `delete_diary_entry` | Delete one logged food/recipe or activity; supports `dry_run`. |
-| `move_diary_food` | Move a food/recipe to another slot or date; supports `dry_run`. |
-| `copy_diary_entries` | Copy selected entry IDs to another date; supports `dry_run`. |
-| `add_diary_note` / `delete_diary_note` | Add a meal-slot note or delete a note by date and ID; supports `dry_run`. |
-| `search_activity` | Search activities with zero-based pagination. |
-| `get_activity` | Read a database activity and its native duration unit. |
-| `log_activity` | Record activity duration in minutes, with optional `HH:mm` time and `dry_run`. |
-| `edit_diary_activity` | Replace a logged activity duration; supports `dry_run`. |
-| `record_weight` | Log user body weight (kg) for a given date (supports `dry_run: true`). |
-| `get_weight_history` | Retrieve recent body weight entries from monthly tracking statistics. |
-| `get_statistics` | Read energy, nutrient, water, weight or custom measurement series for an explicit `from`/`to` range. |
-| `get_tracking_tips` | Read the website's tips for a date range. |
-| `get_tracking_streak` | Read tracking streak information for a date. |
-| `create_meal` | Save a recipe built from existing foods. |
-| `list_my_meals` | List saved recipes with ids/energy, query filtering and zero-based `page`/`limit` pagination. |
-| `log_meal` | Log a saved recipe into the diary with optional portion scaling (supports `dry_run: true`). |
-| `delete_meal` | Delete a saved recipe. |
-| `get_recipe` | Read saved recipe ingredients, instructions, servings and image metadata. |
-| `edit_recipe` | Edit saved recipe metadata/ingredients while preserving visibility; supports `dry_run`. |
-| `edit_diary_recipe` | Scale the current logged recipe by `factor`; supports `dry_run`. |
-| `upload_recipe_image` | Attach a PNG/JPEG image (base64, maximum 5 MiB); supports `dry_run`. |
-| `get_favorites` / `get_common_items` | Read favorite or commonly used foods/activities. |
-| `set_favorite` | Set or remove favorite membership; supports `dry_run`. |
-| `get_profile` | Read nutrition-related settings and goals; omits authentication/payment fields. |
-| `list_templates` / `get_template` | List owned diary templates and read their contents. |
-| `create_template_from_diary` | Save all foods from one day, optionally activities/notes; supports `dry_run`. |
-| `apply_template` / `delete_template` | Add saved quantities to one date or delete the saved template; supports `dry_run`. |
-| `get_measurement_types` / `list_measurement_trackers` | Discover body/custom trackers and their units; weight remains separate. |
-| `create_measurement_tracker` / `record_measurement` | Create a tracker without an initial reading, then record a dated value; supports `dry_run`. |
-| `delete_measurement_tracker` | Delete a non-weight tracker and all its history; supports `dry_run`. |
-| `export_diary` | Download diary XLS/PDF or analysis PDF as an embedded MCP document, maximum 5 MiB. |
+See the [full tool reference](docs/TOOLS.md) for names, preview behavior, and quantity semantics, or [API contracts](docs/API.md) for implementation details.
 
-</details>
+> [!NOTE]
+> Writes take effect immediately unless the tool supports `dry_run` and you enable it.
 
-`get_day_summary` keeps the original statistics response in `summary` and its
-`raw` alias. The `overview` combines energy from statistics with water and macro
-goals from the separate diary summary. Water uses the diary's more precise
-display values, falling back to statistics when unavailable. Litres are converted to
-millilitres; energy retains the site's unit. Missing values remain `null`.
-If either API request fails, the tool reports an error.
+## Development
 
-Diary correction tools require a date and an entry ID from `get_diary`. They
-check membership before changing anything. `edit_diary_food.amount` is an
-absolute quantity, not a multiplier of the previous entry. Recipe IDs from
-`list_my_meals` and food IDs from search are not diary entry IDs.
-`move_diary_food` accepts exactly one destination: `meal` or `target_date`.
-Copying adds entries without replacing the destination. If a copy request
-loses its acknowledgement, read the destination before retrying to avoid
-duplicates. Network failures are not automatically retried.
-Tool logs contain operation names and outcomes, without diary arguments.
-
-For `log_food`, `log_meal`, and `record_weight`, set `dry_run: true` for a
-preview without writing. Omitting `dry_run` or setting it to `false` writes
-immediately. Both modes validate the date, including calendar validity;
-failed food or recipe lookups are reported as preview errors.
-
-### Recipes
-
-The site calls a saved recipe a *meal*. `create_meal` composes one from
-existing foods, so "3 eggs and 200 ml milk" becomes a single reusable item
-rather than two entries typed out every time.
-
-Quantities follow the same rule as `log_food`: `amount` counts **units**, not
-grams. Omitting `unit_id` selects the food's own base unit, which is grams for
-solids and millilitres for liquids — what recipes are normally written in. Pass
-a `unit_id` from `get_food_portions` and the count multiplies it, so 2 of
-`porce (250 ml)` is 500 ml. Getting this backwards is easy: an early test asked
-for 100 of the `100 ml` unit and quietly created a recipe containing ten litres
-of milk.
-
-`log_meal` multiplies the whole saved recipe by `portions` (default `1`).
-For example, `portions: 0.5` scales every selected ingredient by half and
-appears as `50 %` in the website diary. The client uses the form's supported
-percentage unit and `selectedUnitMultiplier`; changing `count` alone does not
-set the displayed quantity correctly.
-
-`edit_diary_recipe.factor` multiplies the **current diary entry**, unlike
-`log_meal.portions`, which multiplies the whole saved recipe. Halving an
-already logged half recipe therefore leaves a quarter recipe and a `25 %`
-label. Editing a saved recipe does not change historical diary entries.
-`edit_recipe.ingredients` replaces all ingredients; omitted fields and the
-recipe's visibility are preserved. An empty instruction list clears the steps.
-Image upload adds an attachment; inspect `get_recipe` after an uncertain
-failure before retrying. API requests time out after 20 seconds without
-automatically repeating an uncertain write.
-HTTP failures are errors even when their response body contains `code: 0`.
-MCP cancellation aborts in-flight API calls and prevents subsequent requests.
-A write already accepted by KT may still complete; inspect the diary before
-retrying it. Shared login renewal continues for other callers.
-The authenticated MCP route accepts up to 7 MiB of JSON to carry a 5 MiB
-base64 image. Other JSON routes retain the 1 MiB limit. Reverse proxies must
-allow the corresponding request size too.
-
-## How it works
-
-[kaloricketabulky.cz](https://www.kaloricketabulky.cz) is a Spring MVC app where every route also answers JSON if you append `?format=json`, returning a `{code, data, message}` envelope. There is no official or documented API — these endpoints were recovered from the site's own frontend JavaScript. See [docs/API.md](docs/API.md) for endpoint contracts and the feature clients under `src/kt/`.
-
-```
-Agent  ──OAuth 2.1──►  kt-mcp  ──JSESSIONID──►  kaloricketabulky.cz
-       ──MCP/HTTPS─►
-```
-
-Two credentials, doing different jobs:
-
-| Secret | Guards |
-|---|---|
-| `MCP_AUTH_PASSWORD` | Who may connect this server to an agent. You type it once in a browser during the OAuth consent step. |
-| `KT_PASSWORD` | The [kaloricketabulky.cz](https://www.kaloricketabulky.cz) account the tools write to. Never leaves the server. |
-
-These two credentials apply to HTTP mode. Local stdio uses only the KT account
-credentials, passed through the subprocess environment or Node's `--env-file`.
-
-### What the HTTP passphrase protects
-
-`MCP_AUTH_PASSWORD` is the only way to obtain a token. Every request to `/mcp`
-requires a valid bearer token, and tokens are minted solely by the consent form
-after a constant-time comparison against that passphrase. Verified by audit
-(`scripts/security-audit.sh`): unauthenticated and forged-token calls are
-rejected, fabricated authorization codes and refresh tokens are rejected, no
-public endpoint exposes a credential, and no verb or path variation reaches the
-tools without a token.
-
-Two things are public by design and safe to be so: OAuth discovery documents
-(the spec requires them) and dynamic client registration. Registering a client
-gets an attacker no further — they still cannot obtain a token without the
-passphrase.
-
-Brute force is bounded by a 100-requests-per-15-minutes limit on `/authorize`.
-That limiter keys on client IP, so nginx **overwrites** `X-Forwarded-For` with
-Cloudflare's verified `CF-Connecting-IP` and the app trusts exactly one proxy
-hop. Appending to a caller-supplied header instead — or setting
-`trust proxy: true` — lets an attacker forge a fresh bucket per request and
-removes the limit entirely.
-
-Residual risks worth knowing: anyone holding the passphrase has full access;
-tokens cannot be revoked individually short of deleting `/data/oauth-state.json`;
-and because client registration is open, a phishing link to the consent page
-could capture the passphrase if you typed it there — check the client name shown
-on the form before authorizing.
-
-## Local development (HTTP)
-
-```bash
-npm install
-cp .env.example .env      # fill in your details
-npm run build
+```sh
+npm ci
 npm test
-
-set -a; source .env; set +a
-PUBLIC_URL=https://localhost:8092 node dist/index.js
+npm run typecheck
 ```
 
-`GET /healthz` returns the resulting public MCP endpoint — the fastest way to confirm that `PUBLIC_URL` is what you think it is.
+Tests include stdio subprocess and OAuth/HTTP checks against controlled fixtures; they do not write to a real KT account. To run HTTP locally with your configured HTTPS identity, use `node --env-file=.env dist/index.js`; your proxy provides HTTPS. See [local MCP verification](docs/LOCAL-MCP.md#verification) and [deployment checks](HOSTING.md#verify-and-connect).
 
-## Self-hosting
-
-This section describes HTTP mode. For a client-managed local process, use
-[stdio](docs/LOCAL-MCP.md) instead.
-
-> ⚠️ The server should be always-on — sleeping PCs will cause scheduled logs to
-> fail. See [HOSTING.md](HOSTING.md) for full context and trade-offs.
-
-The reference deployment uses Docker, nginx, and a free Cloudflare Tunnel — no ports are opened on your host or router. Anything that puts an HTTPS hostname in front of the container works; the tunnel is just the cheapest secure default.
-
-Request path:
-
-```
-Cloudflare → cloudflared (host network) → 127.0.0.1:80 → nginx → kt-mcp:8092
-```
-
-nginx listens only on the host loopback; `cloudflared` makes an outbound connection.
-The nginx config (`deploy/nginx.conf.template`) disables proxy buffering — without
-this, Server-Sent Events buffer until the connection closes and tool calls hang.
-
-**1. Create the tunnel** (once), in Cloudflare Zero Trust dashboard → Networks → Tunnels:
-
-- Create a tunnel, copy the **tunnel token**.
-- Add a public hostname pointing to **`HTTP`** → **`localhost:80`**.
-  `cloudflared` runs in host network mode, so `localhost:80` reaches nginx on the
-  host loopback. Plain `http` because TLS terminates at Cloudflare.
-
-The hostname you chose is called `<your-host>` below; any domain on your Cloudflare
-account works, and nothing in the code cares what domain you use.
-
-**2. Build the image**, from this directory:
-
-```bash
-docker compose build
-```
-
-**3. Deploy the stack.** `deploy/stack.yml` is the runtime compose file (works standalone or as a Portainer stack); set these environment variables:
-
-| Variable | Value |
-|---|---|
-| `KT_EMAIL` / `KT_PASSWORD` | Your [kaloricketabulky.cz](https://www.kaloricketabulky.cz) / [kaloricketabulky.sk](https://www.kaloricketabulky.sk) login |
-| `KT_DOMAIN` | `kaloricketabulky.cz` (default) or `kaloricketabulky.sk` depending on your account |
-| `KT_BASE_URL` | Optional base URL; only consulted if `KT_DOMAIN` is empty or unset |
-| `MCP_HOSTNAME` | `<your-host>` — bare hostname with no scheme. nginx substitutes it on boot |
-| `MCP_AUTH_PASSWORD` | A long passphrase you invent (min 12 characters) |
-| `PUBLIC_URL` | `https://<your-host>` — must match the tunnel hostname exactly |
-| `TUNNEL_TOKEN` | From step 1 |
-
-Keep `docker-compose.yml` and `deploy/stack.yml` in sync — the first builds the image, the second runs it.
-
-**4. Verify the deployment**, before pointing an agent at it:
-
-```bash
-./scripts/verify-deployment.sh https://<your-host>
-```
-
-**5. Connect your agent.** In Claude: Settings → Connectors → Add custom connector → enter `https://<your-host>/mcp`. The agent registers itself, pops open the consent page, and you enter `MCP_AUTH_PASSWORD` once. Other MCP clients have their own "add remote MCP server" flow using the same URL.
-
-### Changing domain later
-
-The hostname is not baked into the image — only `PUBLIC_URL` and the tunnel hostname need to match. To move:
-
-1. Update the tunnel public hostname to the new domain (or create a new tunnel and swap `TUNNEL_TOKEN`).
-2. Update `PUBLIC_URL` on the stack and redeploy.
-3. Re-run the verification script, then remove and re-add the connector in your agent.
-
-Step 3 is required: `PUBLIC_URL` is the OAuth issuer and the RFC 8707 resource identifier, so tokens issued under the old hostname are correctly rejected after the move.
-
-### Stuck, or nowhere to run it?
-
-If you hit a wall self-hosting, open a [GitHub issue](../../issues) — happy to help you get unstuck, that's what the issue tracker is for.
-
-Self-hosting does need a machine that is always on (see [HOSTING.md](HOSTING.md)) and a Cloudflare account. If you have no way to run it at all, you can reach me at **kt-mcp@stanwhy.me** and we can figure something out — just know that running a private instance means real server costs, which would be yours to cover.
-
-## Authentication
-
-The server is its own OAuth 2.1 authorization server, implementing what the MCP spec requires of a protected resource:
-
-- `/.well-known/oauth-protected-resource/mcp` — RFC 9728 discovery
-- `/.well-known/oauth-authorization-server` — RFC 8414 discovery
-- `/authorize`, `/token`, `/register`, `/revoke` — authorization code + PKCE, dynamic client registration, refresh-token rotation
-
-Access tokens live 30 days and are persisted to `/data` on a volume, so redeploying does not force you to reconnect.
-
-### What happens on connect
-
-You don't generate or copy tokens manually — OAuth handles it:
-
-1. You put your **[kaloricketabulky.cz](https://www.kaloricketabulky.cz) login** (`KT_EMAIL` / `KT_PASSWORD`) and a **passphrase you invent** (`MCP_AUTH_PASSWORD`) into the server environment (`.env`). Your Kalorické Tabulky credentials stay on your server; the agent never sees them.
-2. In your agent, you add the connector URL, `https://<your-host>/mcp`. The agent registers itself with your server (dynamic client registration).
-3. A browser window opens to your server's consent screen. You enter `MCP_AUTH_PASSWORD` once.
-4. Your server issues a unique, random access token to the agent, which stores it and refreshes it automatically. Every subsequent tool call is authenticated with that token.
-
-Because each person runs their own instance, each token is single-tenant: your server only knows your food diary, and it only hands out tokens to someone who knows your passphrase. Nothing is shared between installs, and there is no central service.
-
-## Limitations
-
-- **Undocumented upstream.** Dine4Fit guarantees nothing here; a frontend refactor could change payload shapes without warning. The client throws on anything unexpected rather than guessing, so breakage surfaces as a loud error rather than a wrong calorie count.
-- **`md5(password)` is password-equivalent.** The site hashes the password client-side, so the hash is as sensitive as the password. Treat `KT_PASSWORD` accordingly.
-- **One account per instance.** The server logs into a single [kaloricketabulky.cz](https://www.kaloricketabulky.cz) (or [kaloricketabulky.sk](https://www.kaloricketabulky.sk)) account. Two people, two containers.
-- **Personal use.** Automating entry into your own account is a far softer position than bulk scraping, but it is still outside anything Dine4Fit has sanctioned. Keep the request rate human, and don't build a competing client on it.
-- **Choose the appropriate diary view.** `get_day_summary` returns totals; `get_diary` returns individual entries and IDs for corrections. Automated tests do not verify your account or guarantee that undocumented endpoints stay unchanged.
-- **Recipe portion scaling.** When logging saved recipes via `log_meal`, partial or multiple portions (e.g. `0.5` or `2`) are supported by proportionally scaling constituent foodstuff ingredients in the diary entry.
-
-> [!WARNING]
-> ## Unofficial, and not affiliated with Dine4Fit
->
-> [kaloricketabulky.cz](https://www.kaloricketabulky.cz) and [kaloricketabulky.sk](https://www.kaloricketabulky.sk) are operated by **Dine4Fit, a.s.**, who are not involved in
-> this project and do not endorse it. There is no public API; the endpoints used
-> here were read out of the site's own frontend JavaScript and may change or
-> break without notice.
->
-> Dine4Fit's terms grant a **personal, non-commercial** licence. This software is
-> published so that you can automate access to **your own account** — which is
-> what that licence permits. Running it as a paid or multi-tenant service, or
-> redistributing the food data it returns, is a different matter and is on you.
-> The database is Dine4Fit's and is protected by EU database rights.
->
-> Keep the request rate human. Don't build a competing client on it.
+For release checks and the publishing workflow, see [distribution and publishing](docs/DISTRIBUTION.md).
 
 ## Credits
 
-* **[nikopol666/kaloricke-tabulky-MCP](https://github.com/nikopol666/kaloricke-tabulky-MCP)** — safe write flow and dry-run preview concepts.
-* **[tomasvotava/kaloricketabulky](https://github.com/tomasvotava/kaloricketabulky)** — structured modeling of daily overviews, macro targets, and metric tracking.
-* **[TomasHubelbauer/kaloricke-tabulky-api](https://github.com/TomasHubelbauer/kaloricke-tabulky-api)** — reverse-engineering of weight logging (`record_weight`) and statistics summary endpoints.
+- [stany9g/kt-mcp](https://github.com/stany9g/kt-mcp) — the original server this fork builds on.
+- [nikopol666/kaloricke-tabulky-MCP](https://github.com/nikopol666/kaloricke-tabulky-MCP) — safe write flow and dry-run preview concepts.
+- [tomasvotava/kaloricketabulky](https://github.com/tomasvotava/kaloricketabulky) — structured daily overviews, macro targets, and metric tracking.
+- [TomasHubelbauer/kaloricke-tabulky-api](https://github.com/TomasHubelbauer/kaloricke-tabulky-api) — reverse-engineering of weight logging and statistics endpoints.
+
+> [!NOTE]
+> This is an unofficial integration and is not affiliated with or endorsed by Dine4Fit. It uses internal KT endpoints that can change without notice and break functionality.
 
 ## License
 
-Licensed under the [MIT license](LICENSE). The food database and the [kaloricketabulky.cz](https://www.kaloricketabulky.cz) service belong to Dine4Fit, a.s. — this licence covers only the code in this repository.
+[MIT](LICENSE) for this repository's code. The food database and KT services belong to Dine4Fit, a.s.

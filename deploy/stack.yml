@@ -18,7 +18,7 @@
 services:
   kt-mcp:
     image: ${KT_MCP_IMAGE:-kt-mcp:latest}
-    container_name: kt-mcp
+    container_name: kaloricke-tabulky-mcp
     restart: unless-stopped
     environment:
       KT_EMAIL: ${KT_EMAIL}

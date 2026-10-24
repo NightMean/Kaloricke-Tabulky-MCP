@@ -22,7 +22,7 @@ echo "Verifying $BASE"
 # 1. Reachable over TLS from the public internet, which is what Claude needs.
 health=$(curl -fsS --max-time 15 "$BASE/healthz" 2>/dev/null)
 if [[ -z "$health" ]]; then
-  fail "GET /healthz — not reachable. Check (a) the tunnel's public hostname route exists in Cloudflare and points at http://localhost:80, and (b) 'docker ps' shows kt-mcp, kt-mcp-nginx and kt-mcp-tunnel up"
+  fail "GET /healthz — not reachable. Check your HTTPS proxy or tunnel route, and confirm 'docker ps' shows kaloricke-tabulky-mcp running"
   echo; echo "$fails check(s) failed."; exit 1
 fi
 pass "GET /healthz reachable over TLS"
