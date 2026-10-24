@@ -1,0 +1,128 @@
+name: Prepare or publish distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_npm:
+        description: Publish to npm (requires trusted publisher setup)
+        type: boolean
+        default: false
+      publish_image:
+        description: Publish the versioned image to GHCR
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: distribution
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      image: ${{ steps.metadata.outputs.image }}
+    steps:
+      - name: Require main for publication
+        if: (inputs.publish_npm || inputs.publish_image) && github.ref != 'refs/heads/main'
+        run: echo 'Publication must run from main' >&2; exit 1
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run test:package
+      - name: Build package artifact
+        run: |
+          mkdir -p artifacts
+          npm pack --pack-destination artifacts
+      - id: metadata
+        name: Read package identity
+        run: |
+          echo "version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - name: Build native image
+        run: docker build -t kt-mcp:verification .
+      - name: Check container HTTP startup and authentication
+        run: |
+          trap 'docker logs kt-mcp-verification; docker rm -fv kt-mcp-verification' EXIT
+          docker run -d --name kt-mcp-verification -p 127.0.0.1:18092:8092 \
+            -e KT_EMAIL=fixture@example.invalid -e KT_PASSWORD=fixture-password \
+            -e PUBLIC_URL=https://distribution.example.invalid \
+            -e MCP_AUTH_PASSWORD=fixture-consent-password kt-mcp:verification
+          curl --retry 10 --retry-all-errors --retry-delay 1 --max-time 5 --fail http://127.0.0.1:18092/healthz
+          test "$(curl --max-time 5 -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:18092/mcp)" = 401
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: npm-package
+          path: artifacts/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  npm:
+    if: inputs.publish_npm && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Check locked runtime dependencies before publication
+        run: npm audit --omit=dev --audit-level=high
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: npm-package
+          path: artifacts
+      - run: npm publish artifacts/*.tgz --access public
+
+  image:
+    if: inputs.publish_image && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Check locked runtime dependencies before publication
+        run: npm audit --omit=dev --audit-level=high
+      - uses: docker/setup-qemu-action@v4.4.0
+      - uses: docker/setup-buildx-action@v4.4.1
+      - uses: docker/login-action@v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ needs.verify.outputs.image }}:${{ needs.verify.outputs.version }}
+            ${{ needs.verify.outputs.image }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.verify.outputs.version }}

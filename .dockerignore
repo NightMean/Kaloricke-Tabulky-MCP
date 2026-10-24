@@ -4,3 +4,10 @@ dist
 *.log
 deploy
 README.md
+.git
+.scratch
+data
+AGENTS.md
+test
+artifacts
+*.tgz

@@ -1,14 +1,13 @@
-# Runs the locally-built image (see ../docker-compose.yml) as plain docker
-# compose — NOT a Portainer stack. Build, then (re)deploy from kt-mcp/deploy/:
+# Optional Cloudflare Tunnel deployment with Docker Compose.
+# Set KT_MCP_IMAGE in .env, then run from the repository root:
 #
-#   docker compose build                                      (in kt-mcp/)
-#   docker compose -p kt-mcp --env-file ../.env -f stack.yml up -d
+#   docker compose -p kt-mcp --env-file .env -f deploy/stack.yml pull
+#   docker compose -p kt-mcp --env-file .env -f deploy/stack.yml up -d
 #
-# The -p kt-mcp matters: the default project name ("deploy") would recreate
-# the state volume from scratch and lose the connector's OAuth state.
+# Keep -p kt-mcp stable so saved OAuth state is reused across deployments.
 #
 # Secrets (KT_EMAIL, KT_PASSWORD, MCP_AUTH_PASSWORD, PUBLIC_URL, MCP_HOSTNAME,
-# TUNNEL_TOKEN) come from ../.env — never from this file.
+# TUNNEL_TOKEN) come from .env — never from this file.
 #
 # Request path:
 #   Cloudflare  →  cloudflared (host network)  →  127.0.0.1:80  →  nginx  →  kt-mcp:8092
@@ -18,7 +17,7 @@
 # configured to reach http://localhost:80.
 services:
   kt-mcp:
-    image: kt-mcp:latest
+    image: ${KT_MCP_IMAGE:-kt-mcp:latest}
     container_name: kt-mcp
     restart: unless-stopped
     environment:

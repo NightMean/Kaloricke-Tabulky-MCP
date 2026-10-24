@@ -6,3 +6,5 @@ dist/
 data/
 .scratch/
 AGENTS.md
+artifacts/
+*.tgz

@@ -1,7 +1,6 @@
 {
   "name": "kaloricke-tabulky-mcp",
   "version": "0.1.0",
-  "private": true,
   "license": "MIT",
   "type": "module",
   "description": "MCP server exposing kaloricketabulky.cz food logging to AI agents",
@@ -14,12 +13,29 @@
   "engines": {
     "node": ">=22"
   },
+  "bin": {
+    "kaloricke-tabulky-mcp": "dist/cli.js"
+  },
+  "files": [
+    "dist/**/*.js",
+    "!dist/**/*.test.js",
+    "README.en.md",
+    "HOSTING.md",
+    "docs/*.md",
+    ".env.example"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
+    "build:release": "tsc -p tsconfig.release.json",
+    "prepack": "npm run build:release",
     "start": "node dist/index.js",
     "start:stdio": "node dist/stdio.js",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node --test \"dist/**/*.test.js\""
+    "test": "npm run build && node --test \"dist/**/*.test.js\"",
+    "test:package": "node --test test/package.test.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
