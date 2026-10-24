@@ -84,6 +84,10 @@ preview without writing. Omitting `dry_run` or setting it to `false` writes
 immediately. Both modes validate the date, including calendar validity;
 failed food or recipe lookups are reported as preview errors.
 
+`record_weight` requires an explicit request to log weight; mentioning a weight
+alone does not authorize a write. It retains the existing positive-to-500 kg
+range and preview support, rather than introducing a second weight tool.
+
 ## Recipes
 
 The site calls a saved recipe a *meal*. `create_meal` composes one from

@@ -354,6 +354,7 @@ export function registerTools(server: McpServer, kt: KtClient): void {
       title: 'Record body weight',
       description:
         'Log user body weight in kilograms to Kalorické Tabulky. Writes to their weight tracking log for the specified date (defaults to today). ' +
+        'Only call this when the user explicitly asks to record or log their weight; merely mentioning a weight is not permission to write it. ' +
         'Set dry_run: true to preview without writing.',
       inputSchema: {
         weight_kg: z.number().positive().max(500).describe('Body weight in kilograms, e.g. 78.5 or 82.'),
